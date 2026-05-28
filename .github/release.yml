@@ -1,0 +1,20 @@
+changelog:
+  categories:
+    - title: "Nouveautés"
+      labels:
+        - feature
+        - feat
+        - enhancement
+    - title: "Corrections de bugs"
+      labels:
+        - bug
+        - fix
+        - bugfix
+    - title: "Performances & Stabilité"
+      labels:
+        - performance
+        - perf
+        - refactor
+    - title: "Autres changements"
+      labels:
+        - "*"

@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.push.outputs.sha }}
+      version: ${{ steps.push.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +37,7 @@ jobs:
           git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
           git push origin master
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "Bumped to v$NEW_VERSION"
 
   build-launcher:
@@ -87,3 +89,32 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build -- --publish always
         shell: bash
+
+  create-release-notes:
+    needs: [version-bump, build-launcher]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version-bump.outputs.version }}
+          name: "Conflictura Launcher v${{ needs.version-bump.outputs.version }}"
+          body: |
+            ## Conflictura Launcher v${{ needs.version-bump.outputs.version }}
+
+            ### Téléchargement
+
+            | Plateforme | Fichier |
+            |---|---|
+            | **Windows** | `Conflictura Launcher Setup ${{ needs.version-bump.outputs.version }}.exe` |
+            | **macOS Apple Silicon** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}-arm64.dmg` |
+            | **macOS Intel** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}.dmg` |
+            | **Linux** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}.AppImage` |
+
+            ### Mise à jour automatique
+            Si tu as déjà le launcher installé, il se met à jour automatiquement au prochain démarrage — pas besoin de réinstaller.
+
+            ---
+          generate_release_notes: true
+          append_body: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
