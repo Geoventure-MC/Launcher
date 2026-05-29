@@ -317,7 +317,7 @@ class Home {
 
         try {
             const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-            const res = await fetch(`${base}?execute=php&action=servers-status`, {
+            const res = await fetch(`${base}utils/servers-status`, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(5000),
             });
@@ -339,13 +339,14 @@ class Home {
         }
     }
 
+    // In-app notifications served by the panel (/utils/notifications)
     async initNotifications() {
         const container = document.getElementById('notifications-banner');
         if (!container) return;
 
         try {
             const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-            const res = await fetch(`${base}?execute=php&action=notifications`, {
+            const res = await fetch(`${base}utils/notifications`, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(4000),
             });
