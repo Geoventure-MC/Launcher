@@ -121,9 +121,11 @@ class Settings {
     }
 
     async headplayer() {
-        const uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        const account = (await this.database.get(uuid.selected, 'accounts')).value;
-        const pseudo = account.name;
+        const uuidRecord = await this.database.get('1234', 'accounts-selected');
+        if (!uuidRecord?.value?.selected) return;
+        const accountRecord = await this.database.get(uuidRecord.value.selected, 'accounts');
+        if (!accountRecord?.value?.name) return;
+        const pseudo = accountRecord.value.name;
         const azauth = this.getAzAuthUrl();
         const timestamp = new Date().getTime();
         const skin_url = `${azauth}api/skin-api/avatars/face/${pseudo}/?t=${timestamp}`;
@@ -131,8 +133,11 @@ class Settings {
     }
 
     async updateAccountImage() {
-        const uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        const account = (await this.database.get(uuid.selected, 'accounts')).value;
+        const uuidRecord = await this.database.get('1234', 'accounts-selected');
+        if (!uuidRecord?.value?.selected) return;
+        const accountRecord = await this.database.get(uuidRecord.value.selected, 'accounts');
+        if (!accountRecord?.value) return;
+        const account = accountRecord.value;
         const azauth = this.getAzAuthUrl();
         const timestamp = new Date().getTime();
 
@@ -150,8 +155,11 @@ class Settings {
     }
 
     async initOthers() {
-        const uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        const account = (await this.database.get(uuid.selected, 'accounts')).value;
+        const uuidRecord = await this.database.get('1234', 'accounts-selected');
+        if (!uuidRecord?.value?.selected) return;
+        const accountRecord = await this.database.get(uuidRecord.value.selected, 'accounts');
+        if (!accountRecord?.value) return;
+        const account = accountRecord.value;
 
         this.updateRole(account);
         this.updateMoney(account);
@@ -513,8 +521,11 @@ class Settings {
             return;
         }
         const azauth = this.getAzAuthUrl();
-        let uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        let account = (await this.database.get(uuid.selected, 'accounts')).value;
+        const uuidRec = await this.database.get('1234', 'accounts-selected');
+        if (!uuidRec?.value?.selected) return;
+        const accountRec = await this.database.get(uuidRec.value.selected, 'accounts');
+        if (!accountRec?.value) return;
+        let account = accountRec.value;
         const access_token = account.access_token;
         const formData = new FormData();
         formData.append('access_token', access_token);
@@ -544,14 +555,17 @@ class Settings {
     async initPreviewSkin() {
         console.log('initPreviewSkin called');
         const azauth = this.getAzAuthUrl();
-        let uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        let account = (await this.database.get(uuid.selected, 'accounts')).value;
+        const uuidRec = await this.database.get('1234', 'accounts-selected');
+        if (!uuidRec?.value?.selected) return;
+        const accountRec = await this.database.get(uuidRec.value.selected, 'accounts');
+        if (!accountRec?.value?.name) return;
+        let account = accountRec.value;
 
         let title = document.querySelector('.player-skin-title');
-        title.innerHTML = `Skin de ${account.name}`;
+        if (title) title.innerHTML = `Skin de ${account.name}`;
 
         const skin = document.querySelector('.skin-renderer-settings');
-        const cacheBuster = new Date().getTime();
+        if (!skin) return;
         const url = `${azauth}skin3d/3d-api/skin-api/${account.name}`;
         skin.src = url;
     }
