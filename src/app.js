@@ -68,14 +68,15 @@ app.on('window-all-closed', () => {
 autoUpdater.autoDownload = false;
 
 ipcMain.handle('update-app', async () => {
-    return await new Promise(async (resolve, reject) => {
+    return await new Promise((resolve, reject) => {
         autoUpdater.checkForUpdates().then(res => {
             resolve(res);
         }).catch(error => {
-            reject({
-                error: true,
-                message: error
-            })
+            // Reject with a real Error so the message serializes as a readable
+            // string across IPC (otherwise the renderer sees "[object Object]").
+            reject(error instanceof Error
+                ? error
+                : new Error(String(error && error.message ? error.message : error)));
         })
     })
 })

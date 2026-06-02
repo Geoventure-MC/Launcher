@@ -58,7 +58,10 @@ class Splash {
         this.setStatus(`Recherche de mise à jour...`);
 
         ipcRenderer.invoke('update-app').then().catch(err => {
-            return this.shutdown(`erreur lors de la recherche de mise à jour :<br>${err.message}`);
+            // A failed update check (no release feed, network down, unpacked dev
+            // build…) must NOT block the launcher. Log it and continue startup.
+            console.error('Recherche de mise à jour échouée :', err && err.message ? err.message : err);
+            return this.maintenanceCheck();
         });
 
         ipcRenderer.on('updateAvailable', () => {
