@@ -41,13 +41,14 @@ async function sendEvent(event, extra = {}) {
     };
 
     try {
-        await fetch(`${panelUrl}?execute=php`, {
+        // Endpoint dédié côté panel : POST {panel}/utils/telemetry
+        await fetch(`${panelUrl}utils/telemetry`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
             },
-            body: JSON.stringify({ action: 'telemetry', data: payload }),
+            body: JSON.stringify(payload),
         });
     } catch {
         // Non-blocking — telemetry must never break the app
