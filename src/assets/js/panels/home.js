@@ -106,10 +106,11 @@ class Home {
 
     setServerIcon() {
         const serverImg = document.querySelector('.server-img');
-        serverImg.setAttribute("src", this.config.server_icon);
         if (!this.config.server_icon) {
             serverImg.style.display = "none";
+            return;
         }
+        serverImg.setAttribute("src", this.config.server_icon);
     }
 
     async initLaunch() {
@@ -266,8 +267,9 @@ class Home {
         const playersConnected = document.querySelector('.etat-text .text');
         const online = document.querySelector(".etat-text .online");
 
-        let ip = this.config.status.ip;
-        let port = this.config.status.port;
+        const status = this.config.status || {};
+        let ip = status.ip;
+        let port = status.port;
 
         if (!port) {
             try {
@@ -445,7 +447,7 @@ class Home {
 
     async initAdvert() {
         const advertBanner = document.querySelector('.advert-banner');
-        if (this.config.alert_activate) {
+        if (this.config.alert_activate && this.config.alert_msg) {
             const message = this.config.alert_msg;
             const firstParagraph = message.split('</p>')[0] + '</p>';
             const scrollingText = document.createElement('div');
