@@ -175,15 +175,6 @@ class Home {
 
         const screen = resolution.screen.width === '<auto>' ? false : { width: resolution.screen.width, height: resolution.screen.height };
 
-        // Smart launch / auto-join: when enabled, ask Minecraft to connect
-        // straight to the selected server via the 1.20.1 quick-play arg.
-        const gameArgs = [];
-        if (launcherSettings.launcher.autoJoin && this.config.status?.ip) {
-            const host = this.config.status.ip;
-            const port = this.config.status.port || 25565;
-            gameArgs.push('--quickPlayMultiplayer', `${host}:${port}`);
-        }
-
         return {
             url: urlpkg,
             authenticator: account,
@@ -204,7 +195,7 @@ class Home {
             ],
             intelEnabledMac: process.platform === 'darwin' && process.arch === 'arm64',
             JVM_ARGS: [],
-            GAME_ARGS: gameArgs,
+            GAME_ARGS: [],
             java: this.config.java,
             memory: {
                 min: `${ram.ramMin * 1024}M`,
@@ -268,13 +259,6 @@ class Home {
         ipcRenderer.send('main-window-progress-reset');
         progressBar.style.display = "none";
         info.innerHTML = t('starting');
-
-        // Mark the start of an actual game session for playtime tracking.
-        if (!this.gameStart) {
-            this.gameStart = Date.now();
-            this.recordLaunch();
-        }
-
         this.appendLog(String(e));
 
         const logToggle = document.getElementById('log-toggle-btn');
@@ -296,13 +280,6 @@ class Home {
 
         const sessionDuration = Math.round((Date.now() - sessionStart) / 1000);
         sendEvent('close', { sessionDuration });
-
-        // Persist the in-game session length (start = first 'data' event).
-        if (this.gameStart) {
-            const gameSeconds = Math.round((Date.now() - this.gameStart) / 1000);
-            this.recordPlaytime(gameSeconds);
-            this.gameStart = null;
-        }
 
         console.log('Close');
     }
@@ -402,8 +379,6 @@ class Home {
             const notifications = await res.json();
             if (!Array.isArray(notifications) || !notifications.length) return;
 
-            this.pushDesktopNotifications(notifications);
-
             container.innerHTML = '';
             for (const notif of notifications) {
                 const el = document.createElement('div');
@@ -428,40 +403,6 @@ class Home {
                 container.appendChild(el);
             }
             container.style.display = 'block';
-        } catch {
-            // Non-blocking
-        }
-    }
-
-    // Fire a native OS notification for announcements not seen before.
-    pushDesktopNotifications(notifications) {
-        try {
-            if (typeof Notification === 'undefined') return;
-            const seenRaw = localStorage.getItem('geoventure_seen_notifs') || '[]';
-            let seen;
-            try { seen = JSON.parse(seenRaw); } catch { seen = []; }
-            if (!Array.isArray(seen)) seen = [];
-
-            const fresh = notifications.filter(n => n.id != null && !seen.includes(n.id));
-            if (!fresh.length) return;
-
-            const fire = () => {
-                for (const n of fresh.slice(0, 3)) {
-                    new Notification(`${this._notifIcon(n.type)} ${pkg.productName || 'Nexus'}`, {
-                        body: String(n.message || '').slice(0, 180),
-                        silent: false,
-                    });
-                }
-            };
-
-            if (Notification.permission === 'granted') {
-                fire();
-            } else if (Notification.permission !== 'denied') {
-                Notification.requestPermission().then(p => { if (p === 'granted') fire(); });
-            }
-
-            const allIds = notifications.map(n => n.id).filter(id => id != null);
-            localStorage.setItem('geoventure_seen_notifs', JSON.stringify(allIds.slice(-100)));
         } catch {
             // Non-blocking
         }
@@ -548,51 +489,6 @@ class Home {
         document.querySelector('.settings-btn').addEventListener('click', () => {
             changePanel('settings');
         });
-        const profileBtn = document.getElementById('profile-btn');
-        if (profileBtn) {
-            profileBtn.addEventListener('click', () => changePanel('profile'));
-        }
-    }
-
-    // ---- Local play stats (feeds the Profile panel) ----
-    currentServerId() {
-        const current = localStorage.getItem('geoventure_server_url') || settings_url;
-        const match = (pkg.servers || []).find(s => s.settings === current || `${s.settings}/` === current || s.settings === `${current}/`);
-        return match ? match.id : null;
-    }
-
-    async getStatsRecord() {
-        const rec = await this.database.get('stats', 'profile');
-        return rec?.value || { uuid: 'stats', totalPlaytime: 0, launches: 0, perServer: {}, firstLaunch: null, lastPlayed: null };
-    }
-
-    async saveStatsRecord(stats) {
-        const existing = await this.database.get('stats', 'profile');
-        if (existing?.value) {
-            await this.database.update(stats, 'profile');
-        } else {
-            await this.database.add(stats, 'profile');
-        }
-    }
-
-    async recordLaunch() {
-        const stats = await this.getStatsRecord();
-        stats.launches = (stats.launches || 0) + 1;
-        if (!stats.firstLaunch) stats.firstLaunch = Date.now();
-        await this.saveStatsRecord(stats);
-    }
-
-    async recordPlaytime(seconds) {
-        if (!seconds || seconds < 1) return;
-        const stats = await this.getStatsRecord();
-        stats.totalPlaytime = (stats.totalPlaytime || 0) + Math.round(seconds);
-        stats.lastPlayed = Date.now();
-        const serverId = this.currentServerId();
-        if (serverId) {
-            stats.perServer = stats.perServer || {};
-            stats.perServer[serverId] = (stats.perServer[serverId] || 0) + Math.round(seconds);
-        }
-        await this.saveStatsRecord(stats);
     }
 
     async getDate(e) {
