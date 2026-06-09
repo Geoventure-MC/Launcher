@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Geoventure-MC/Launcher/master/src/assets/images/icon.png" alt="Conflictura Launcher" width="120"/>
+<img src="https://raw.githubusercontent.com/Geoventure-MC/Launcher/master/src/assets/images/icon.png" alt="Nexus Launcher" width="120"/>
 
-# Conflictura Launcher
+# Nexus Launcher
 
 **Joue sur Geoventure MC en un clic — Minecraft 1.20.1**
 
@@ -20,7 +20,7 @@
 
 ## Présentation
 
-Le **Conflictura Launcher** te permet de rejoindre les serveurs Geoventure MC sans rien configurer manuellement.
+Le **Nexus Launcher** te permet de rejoindre les serveurs Geoventure MC sans rien configurer manuellement.
 
 Il télécharge automatiquement Java, les mods et les mises à jour. Tu lances, tu joues.
 
@@ -40,10 +40,10 @@ Il télécharge automatiquement Java, les mods et les mises à jour. Tu lances, 
 
 | Plateforme | Fichier |
 |---|---|
-| **Windows** | `Conflictura Launcher Setup x.x.x.exe` |
-| **macOS (Apple Silicon)** | `Conflictura Launcher-x.x.x-arm64.dmg` |
-| **macOS (Intel)** | `Conflictura Launcher-x.x.x.dmg` |
-| **Linux** | `Conflictura Launcher-x.x.x.AppImage` |
+| **Windows** | `Nexus Launcher Setup x.x.x.exe` |
+| **macOS (Apple Silicon)** | `Nexus Launcher-x.x.x-arm64.dmg` |
+| **macOS (Intel)** | `Nexus Launcher-x.x.x.dmg` |
+| **Linux** | `Nexus Launcher-x.x.x.AppImage` |
 
 ### Installation
 
@@ -59,8 +59,8 @@ Il télécharge automatiquement Java, les mods et les mises à jour. Tu lances, 
 
 **Linux**
 1. Télécharge l’`.AppImage`
-2. Rends-le exécutable : `chmod +x Conflictura*.AppImage`
-3. Lance-le : `./Conflictura*.AppImage`
+2. Rends-le exécutable : `chmod +x Nexus*.AppImage`
+3. Lance-le : `./Nexus*.AppImage`
 
 ### Mise à jour automatique
 
