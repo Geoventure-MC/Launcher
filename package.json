@@ -1,7 +1,7 @@
 {
     "name": "nexus",
     "productName": "Nexus",
-    "version": "4.0.18",
+    "version": "4.0.19",
     "description": "Geoventure modded server launcher",
     "main": "src/app.js",
     "author": "Riptiaz/Boulldogo/Vexato/Luuxis",
