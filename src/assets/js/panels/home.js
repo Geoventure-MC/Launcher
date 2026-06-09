@@ -53,6 +53,7 @@ class Home {
         this.initKeyboardShortcuts();
         this.initLogConsole();
         this.validateApiSchema();
+        this.initOfflineBadge();
 
         sendEvent('launch');
     }
@@ -732,6 +733,20 @@ class Home {
                 if (body) body.innerHTML = '';
             });
         }
+    }
+
+    initOfflineBadge() {
+        const badge = document.getElementById('offline-badge');
+        if (!badge) return;
+
+        const update = () => {
+            const online = navigator.onLine;
+            badge.style.display = online ? 'none' : 'block';
+        };
+
+        update();
+        window.addEventListener('online', update);
+        window.addEventListener('offline', update);
     }
 
     appendLog(text) {

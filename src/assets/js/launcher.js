@@ -13,6 +13,7 @@ const { ipcRenderer } = require('electron');
 const DiscordRPC = require('discord-rpc');
 
 import { config, logger, changePanel, database, addAccount, accountSelect, t } from './utils.js';
+import { getAzAuthUrl } from './utils/config.js';
 import Login from './panels/login.js';
 import Home from './panels/home.js';
 import Settings from './panels/settings.js';
@@ -101,9 +102,15 @@ class Launcher {
             console.log(`Initializing ${panel.name} Panel...`);
             const div = document.createElement("div");
             div.classList.add("panel", panel.id);
-            div.innerHTML = fs.readFileSync(`${__dirname}/panels/${panel.id}.html`, "utf8");
-            panelsElem.appendChild(div);
-            new panel().init(this.config, this.news);
+            try {
+                div.innerHTML = fs.readFileSync(`${__dirname}/panels/${panel.id}.html`, "utf8");
+                panelsElem.appendChild(div);
+                new panel().init(this.config, this.news);
+            } catch (err) {
+                console.error(`[createPanels] Failed to load panel "${panel.id}":`, err);
+                div.innerHTML = `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#f87171;text-align:center;">${panel.id} failed to load</div>`;
+                panelsElem.appendChild(div);
+            }
         }
     }
 
@@ -421,10 +428,7 @@ class Launcher {
         }, 550);
     }
     getAzAuthUrl() {
-        const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        if (pkg.env === 'azuriom') return baseUrl;
-        const az = (this.config && this.config.azauth) ? String(this.config.azauth) : baseUrl;
-        return az.endsWith('/') ? az : `${az}/`;
+        return getAzAuthUrl(this.config);
     }
 }
 

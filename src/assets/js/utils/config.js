@@ -16,7 +16,7 @@ function getConfigUrl() {
     return pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/options` : `${baseUrl}utils/api`;
 }
 
-function getAzAuthUrl(config) {
+export function getAzAuthUrl(config) {
     const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
     if (pkg.env === 'azuriom') return baseUrl;
     // Guard against a null/undefined azauth (panel auth not configured yet).

@@ -5,7 +5,7 @@
  *
  * Edited by CentralCorp Team
  */
-import config from './utils/config.js';
+import config, { getAzAuthUrl } from './utils/config.js';
 import database from './utils/database.js';
 import logger from './utils/logger.js';
 import slider from './utils/slider.js';
@@ -58,7 +58,7 @@ function changePanel(id) {
 }
 
 function addAccount(data) {
-    const azauth = getAzAuthUrl();
+    const azauth = _getAzAuthUrl();
     const timestamp = new Date().getTime();
     const div = document.createElement("div");
     div.classList.add("account");
@@ -84,17 +84,14 @@ function accountSelect(uuid) {
 
 function headplayer(pseudo) {
     if (!pseudo) return;
-    const azauth = getAzAuthUrl();
+    const azauth = _getAzAuthUrl();
     const timestamp = new Date().getTime();
     const skin_url = `${azauth}api/skin-api/avatars/face/${pseudo}/?t=${timestamp}`;
     document.querySelector(".player-head").style.backgroundImage = `url(${skin_url})`;
 }
 
-function getAzAuthUrl() {
-    const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-    if (pkg.env === 'azuriom') return baseUrl;
-    const az = (config && config.config && config.config.azauth) ? String(config.config.azauth) : baseUrl;
-    return az.endsWith('/') ? az : `${az}/`;
+function _getAzAuthUrl() {
+    return getAzAuthUrl(config && config.config);
 }
 
 function showLoadingOverlay() {
