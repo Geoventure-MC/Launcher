@@ -91,11 +91,9 @@ function headplayer(pseudo) {
 
 function getAzAuthUrl() {
     const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-    return pkg.env === 'azuriom'
-        ? baseUrl
-        : config.config.azauth.endsWith('/')
-            ? config.config.azauth
-            : `${config.config.azauth}/`;
+    if (pkg.env === 'azuriom') return baseUrl;
+    const az = (config && config.config && config.config.azauth) ? String(config.config.azauth) : baseUrl;
+    return az.endsWith('/') ? az : `${az}/`;
 }
 
 function showLoadingOverlay() {

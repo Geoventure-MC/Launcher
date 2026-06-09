@@ -324,6 +324,7 @@ class Settings {
 
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
         const response = await fetch(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const apiMods = await response.json();
         const apiModsSet = new Set(apiMods.optionalMods);
 
@@ -391,6 +392,7 @@ class Settings {
     async createModsConfig(modsConfigFile) {
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
         const response = await fetch(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         const modsConfig = {};
 
@@ -413,6 +415,7 @@ class Settings {
 
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
         const response = await fetch(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
 
         if (!data.optionalMods || !data.mods) {
