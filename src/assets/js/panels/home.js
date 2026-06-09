@@ -490,6 +490,9 @@ class Home {
         document.querySelector('.settings-btn').addEventListener('click', () => {
             changePanel('settings');
         });
+        document.querySelector('.profile-btn')?.addEventListener('click', () => {
+            changePanel('profile');
+        });
     }
 
     async getDate(e) {

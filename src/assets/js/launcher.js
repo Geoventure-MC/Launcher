@@ -17,6 +17,7 @@ import { getAzAuthUrl } from './utils/config.js';
 import Login from './panels/login.js';
 import Home from './panels/home.js';
 import Settings from './panels/settings.js';
+import Profile from './panels/profile.js';
 
 const settings_url = localStorage.getItem('geoventure_server_url') || (pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings);
 const urlPattern = /^(https?:\/\/)/;
@@ -37,7 +38,7 @@ class Launcher {
         this.applyAccentColor();
         this.news = await config.GetNews();
         this.database = await new database().init();
-        this.createPanels(Login, Home, Settings);
+        this.createPanels(Login, Home, Settings, Profile);
         this.getAccounts();
         this.initDiscordRPC();
     }
