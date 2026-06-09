@@ -134,19 +134,31 @@ class Index {
         return file;
     }
 
-    async iconSet(url) {
-        let Buffer = await nodeFetch(url)
-        if (Buffer.status == 200) {
-            Buffer = await Buffer.buffer()
-            const image = await Jimp.read(Buffer);
-            Buffer = await image.resize(256, 256).getBufferAsync(Jimp.MIME_PNG)
-            fs.writeFileSync("src/assets/images/icon.icns", png2icons.createICNS(Buffer, png2icons.BILINEAR, 0));
-            fs.writeFileSync("src/assets/images/icon.ico", png2icons.createICO(Buffer, png2icons.HERMITE, 0, false));
-            fs.writeFileSync("src/assets/images/icon.png", Buffer);
-            console.log('new icon set')
+    async iconSet(source) {
+        let inputBuffer;
+
+        // Accepte une URL (http/https) OU un chemin de fichier local.
+        if (/^https?:\/\//i.test(source)) {
+            const res = await nodeFetch(source);
+            if (res.status !== 200) {
+                console.log('connection error');
+                return;
+            }
+            inputBuffer = await res.buffer();
         } else {
-            console.log('connection error')
+            if (!fs.existsSync(source)) {
+                console.log(`fichier introuvable : ${source}`);
+                return;
+            }
+            inputBuffer = fs.readFileSync(source);
         }
+
+        const image = await Jimp.read(inputBuffer);
+        const png = await image.resize(256, 256).getBufferAsync(Jimp.MIME_PNG);
+        fs.writeFileSync("src/assets/images/icon.icns", png2icons.createICNS(png, png2icons.BILINEAR, 0));
+        fs.writeFileSync("src/assets/images/icon.ico", png2icons.createICO(png, png2icons.HERMITE, 0, false));
+        fs.writeFileSync("src/assets/images/icon.png", png);
+        console.log('new icon set');
     }
 }
 
