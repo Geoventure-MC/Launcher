@@ -6,6 +6,7 @@
  * Edited by CentralCorp Team
  */
 import { database, changePanel, addAccount, accountSelect, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
+import { getAzAuthUrl } from '../utils/config.js';
 const { AZauth } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const pkg = require('../package.json');
@@ -177,10 +178,7 @@ class Login {
     }
 
     getAzAuthUrl() {
-        const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        if (pkg.env === 'azuriom') return baseUrl;
-        const az = (this.config && this.config.azauth) ? String(this.config.azauth) : baseUrl;
-        return az.endsWith('/') ? az : `${az}/`;
+        return getAzAuthUrl(this.config);
     }
 
     setupExternalLinks(azauth) {
