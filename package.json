@@ -1,7 +1,7 @@
 {
     "name": "nexus",
     "productName": "Nexus",
-    "version": "4.0.21",
+    "version": "4.0.22",
     "description": "Geoventure modded server launcher",
     "main": "src/app.js",
     "author": "peterdu1109",
