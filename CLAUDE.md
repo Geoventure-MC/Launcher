@@ -46,6 +46,31 @@ Page admin **📢 Annonces** qui alimente le bandeau de notifications du launche
 - Bandeau déjà en place : `#notifications-banner` dans `src/panels/home.html`, styles + i18n (`notif_learn_more`).
 - Format attendu par le launcher : `[{ id, type, message, url, expiresAt, createdAt }]`, `type ∈ info|warning|maintenance|event`.
 
+## 🩹 Stabilité / correctifs réseau (session 2026-06-09)
+
+Correctifs livrés suite aux erreurs d'une session launcher live (502/404/double-slash/JSON-parse).
+
+**Launcher** (poussé sur `master`) :
+- `utils/config.js` — `getAzAuthUrl()` garde-fou si `azauth` null ; `GetConfig()` vérifie `response.ok` (sinon throw) ; `GetNews()` non-fatal (renvoie un placeholder au lieu de throw).
+- `launcher.js` + `panels/login.js` — `getAzAuthUrl()` garde-fou null ; suppression du `console.log('initPreviewSkin called')` (debug) ; null-guards sur les lookups DB `accounts-selected → accounts` dans `initPreviewSkin()`/`initOthers()` (plus de crash au 1er lancement / compte absent).
+- `utils.js` — `getAzAuthUrl()` garde-fou `config.config.azauth` null ; `headplayer(pseudo)` ignore la requête skin si pseudo vide (évite `.../avatars/face//` 404).
+- `panels/settings.js` — les 3 fetch de mods (`updateModsConfig`, `createModsConfig`, `displayMods`) vérifient `response.ok` avant `.json()` (évite `SyntaxError: Unexpected token '<'` sur page HTML 502).
+- `panels/home.js` — `_doLaunch()` : `await launch.Launch()` dans un `try/catch` ; en cas d'échec (ex. `GetInfoVersion: Failed to fetch`), le bouton play réapparaît + message `launch_error` au lieu d'une promesse rejetée non gérée + bouton bloqué.
+- `index.js` — `os.platform()` (au lieu de `os ==`) ; garde sur `releases_url` avant accès `assets`.
+- i18n `launch_error` ajoutée (fr/en).
+
+**Panel** (poussé sur `main`) :
+- `api/ApiController.php` — `azauth` jamais null (fallback `azuriom_url` puis `""`) ; defaults loader alignés sur le serveur réel : `game_version` → `1.20.1`, `loader.build` → `1.20.1-47.4.20`, robustes aussi si le champ existe mais est vide (évite un `game_version` vide qui casse `GetInfoVersion`).
+- `api/FileController.php` — `GET /data` renvoie `[]` (200) si `storage/app/public/data` absent + garde sur `scandir()` (sinon `foreach(false)` → TypeError → 500 HTML → launcher plante au téléchargement du jeu).
+- `AdminServerController.php` + `routes/web.php` — suppression de la route/méthode `server/update` morte et risquée (mass-assignment sur `OptionsServer::first()`).
+
+**Skin API (Azuriom)** : le launcher utilise déjà les bons endpoints du plugin Skin-API (`/api/skin-api/avatars/face/{name}`, `/skin3d/3d-api/skin-api/{name}`, `POST /api/skin-api/skins/update`). Les 404 observés = plugin Skin-API non installé/actif sur le domaine Azuriom, **pas** un bug launcher.
+
+**À faire côté serveur (infra, pas du code)** :
+- Uploader le modpack Forge 1.20.1 dans `storage/app/public/data/` du panel.
+- Vérifier Admin → Loader (`1.20.1`, forge `1.20.1-47.4.20`, activé) et Admin → Général (`azuriom_url`).
+- Installer/activer le plugin Skin-API sur l'Azuriom pour les avatars.
+
 ## 📋 Features PANEL à faire (proposées, pas encore codées)
 
 1. **Mode maintenance amélioré** — existe déjà (`options_security.maintenance` + `maintenance_message` exposés dans `/utils/api`). À enrichir : toggle rapide + le launcher bloque le lancement.
