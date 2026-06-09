@@ -105,11 +105,15 @@ class Splash {
         const githubAPIRepo = await nodeFetch(githubAPIRepoURL).then(res => res.json()).catch(err => err);
 
         const releases_url = await nodeFetch(githubAPIRepo.releases_url.replace("{/id}", '')).then(res => res.json()).catch(err => err);
+        if (!Array.isArray(releases_url) || releases_url.length === 0 || !releases_url[0].assets) {
+            console.error("Impossible de récupérer les releases GitHub:", releases_url);
+            return this.startLauncher();
+        }
         const latestRelease = releases_url[0].assets;
         let latest;
 
         if (os.platform() == 'darwin') latest = this.getLatestReleaseForOS('mac', '.dmg', latestRelease);
-        else if (os == 'linux') latest = this.getLatestReleaseForOS('linux', '.appimage', latestRelease);
+        else if (os.platform() == 'linux') latest = this.getLatestReleaseForOS('linux', '.appimage', latestRelease);
 
 
         this.setStatus(`Mise à jour disponible !<br><div class="download-update">Télécharger</div>`);

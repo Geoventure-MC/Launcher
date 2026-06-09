@@ -173,11 +173,9 @@ class Login {
 
     getAzAuthUrl() {
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        return pkg.env === 'azuriom'
-            ? baseUrl
-            : this.config.azauth.endsWith('/')
-                ? this.config.azauth
-                : `${this.config.azauth}/`;
+        if (pkg.env === 'azuriom') return baseUrl;
+        const az = (this.config && this.config.azauth) ? String(this.config.azauth) : baseUrl;
+        return az.endsWith('/') ? az : `${az}/`;
     }
 
     setupExternalLinks(azauth) {
@@ -284,7 +282,7 @@ class Login {
             if (account_connect.A2F === true) {
                 this.toggleLoginCards("a2f");
                 elements.a2finput.value = "";
-                elements.cancelMojangBtn.disabled = false;
+                if (elements.cancel2f) elements.cancel2f.disabled = false;
                 return;
             }
 
@@ -294,8 +292,6 @@ class Login {
                 this.enableLoginForm(elements);
                 return;
             }
-
-            console.log(account_connect);
 
             const account = this.createAccountObject(account_connect);
             await this.saveAccount(account);

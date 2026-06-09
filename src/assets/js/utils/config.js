@@ -18,13 +18,19 @@ function getConfigUrl() {
 
 function getAzAuthUrl(config) {
     const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-    return pkg.env === 'azuriom' ? baseUrl : config.azauth.endsWith('/') ? config.azauth : `${config.azauth}/`;
+    if (pkg.env === 'azuriom') return baseUrl;
+    // Guard against a null/undefined azauth (panel auth not configured yet).
+    const az = (config && config.azauth) ? String(config.azauth) : baseUrl;
+    return az.endsWith('/') ? az : `${az}/`;
 }
 
 class Config {
     async GetConfig() {
         try {
             const response = await fetch(getConfigUrl());
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} sur ${getConfigUrl()}`);
+            }
             return await response.json();
         } catch (error) {
             console.error("Failed to fetch config:", error);
@@ -52,8 +58,14 @@ class Config {
 
             return Array.isArray(items) ? items.map(this.parseNewsItem) : [this.parseNewsItem(items)];
         } catch (error) {
+            // Non-fatal: a missing/broken RSS feed must not block the launcher init.
             console.error("Failed to fetch news:", error);
-            throw error;
+            return [{
+                title: "Actualités indisponibles",
+                content: "Impossible de récupérer les actualités pour le moment.",
+                author: "",
+                publish_date: ""
+            }];
         }
     }
 

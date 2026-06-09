@@ -25,7 +25,14 @@ class Launcher {
         this.initLog();
         console.log("Initializing Launcher...");
         if (process.platform === "win32") this.initFrame();
-        this.config = await config.GetConfig();
+        try {
+            this.config = await config.GetConfig();
+        } catch (e) {
+            console.error("Config fetch failed:", e);
+            const preload = document.getElementById('preload-title');
+            if (preload) preload.textContent = "Impossible de joindre le serveur. Réessayez plus tard.";
+            return;
+        }
         this.applyAccentColor();
         this.news = await config.GetNews();
         this.database = await new database().init();
@@ -411,11 +418,9 @@ class Launcher {
     }
     getAzAuthUrl() {
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        return pkg.env === 'azuriom'
-            ? baseUrl
-            : this.config.azauth.endsWith('/')
-                ? this.config.azauth
-                : `${this.config.azauth}/`;
+        if (pkg.env === 'azuriom') return baseUrl;
+        const az = (this.config && this.config.azauth) ? String(this.config.azauth) : baseUrl;
+        return az.endsWith('/') ? az : `${az}/`;
     }
 }
 
