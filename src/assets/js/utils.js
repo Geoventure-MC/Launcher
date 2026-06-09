@@ -52,8 +52,8 @@ export {
 
 function changePanel(id) {
     const panel = document.querySelector(`.${id}`);
-    const active = document.querySelector(`.active`);
-    if (active) active.classList.toggle("active");
+    const active = document.querySelector('.panel.active');
+    if (active) active.classList.remove("active");
     panel.classList.add("active");
 }
 
