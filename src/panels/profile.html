@@ -1,0 +1,53 @@
+<link rel='stylesheet' href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+<div class="profile-content">
+    <button class="profile-back-btn" id="profile-back-btn" title="Retour">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+
+    <header class="profile-header">
+        <div class="profile-skin-card">
+            <iframe frameborder="0" id="profile-skin-render" class="profile-skin-render" src=""></iframe>
+        </div>
+        <div class="profile-identity">
+            <div class="profile-name" id="profile-name">—</div>
+            <div class="profile-role" id="profile-role"></div>
+            <div class="profile-coins" id="profile-coins"></div>
+            <button class="profile-skin-btn" id="profile-skin-btn">
+                <i class="fas fa-tshirt"></i> <span id="profile-skin-btn-text">Changer de skin</span>
+            </button>
+        </div>
+    </header>
+
+    <nav class="profile-tabs">
+        <button class="profile-tab active" data-tab="stats" id="profile-tab-stats"><i class="fas fa-chart-line"></i><span></span></button>
+        <button class="profile-tab" data-tab="achievements" id="profile-tab-achievements"><i class="fas fa-trophy"></i><span></span></button>
+        <button class="profile-tab" data-tab="leaderboard" id="profile-tab-leaderboard"><i class="fas fa-ranking-star"></i><span></span></button>
+        <button class="profile-tab" data-tab="factions" id="profile-tab-factions"><i class="fas fa-shield-halved"></i><span></span></button>
+    </nav>
+
+    <div class="profile-panels">
+        <!-- Stats -->
+        <section class="profile-panel active" data-panel="stats">
+            <div class="stats-grid" id="stats-grid"></div>
+            <div class="stats-servers" id="stats-servers"></div>
+        </section>
+
+        <!-- Achievements -->
+        <section class="profile-panel" data-panel="achievements">
+            <div class="ach-summary" id="ach-summary"></div>
+            <div class="ach-grid" id="ach-grid"></div>
+        </section>
+
+        <!-- Leaderboard -->
+        <section class="profile-panel" data-panel="leaderboard">
+            <div class="lb-state" id="lb-state"></div>
+            <div class="lb-list" id="lb-list"></div>
+        </section>
+
+        <!-- Factions -->
+        <section class="profile-panel" data-panel="factions">
+            <div class="fac-state" id="fac-state"></div>
+            <div class="fac-list" id="fac-list"></div>
+        </section>
+    </div>
+</div>

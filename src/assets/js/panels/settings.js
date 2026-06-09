@@ -599,13 +599,15 @@ class Settings {
         let settingsLauncher = {
             uuid: "1234",
             launcher: {
-                close: launcherDatabase?.launcher?.close || 'close-launcher'
+                close: launcherDatabase?.launcher?.close || 'close-launcher',
+                autoJoin: launcherDatabase?.launcher?.autoJoin || false
             }
         }
 
         let closeLauncher = document.getElementById("launcher-close");
         let closeAll = document.getElementById("launcher-close-all");
         let openLauncher = document.getElementById("launcher-open");
+        let autoJoin = document.getElementById("launcher-autojoin");
 
         if (settingsLauncher.launcher.close === 'close-launcher') {
             closeLauncher.checked = true;
@@ -644,6 +646,14 @@ class Settings {
             settingsLauncher.launcher.close = 'open-launcher';
             this.database.update(settingsLauncher, 'launcher');
         })
+
+        if (autoJoin) {
+            autoJoin.checked = !!settingsLauncher.launcher.autoJoin;
+            autoJoin.addEventListener("change", () => {
+                settingsLauncher.launcher.autoJoin = autoJoin.checked;
+                this.database.update(settingsLauncher, 'launcher');
+            })
+        }
     }
 
     initTab() {
@@ -687,6 +697,8 @@ class Settings {
         document.getElementById('close-launcher-text').textContent = t('close_launcher');
         document.getElementById('close-all-text').textContent = t('close_all');
         document.getElementById('open-launcher-text').textContent = t('open_launcher');
+        const autojoinText = document.getElementById('autojoin-text');
+        if (autojoinText) autojoinText.textContent = t('auto_join') || 'Rejoindre le serveur automatiquement au lancement';
         document.getElementById('mods-title').textContent = t('optional_mods');
         document.getElementById('mods-info').innerHTML = t('mods_detailed_info');
         document.getElementById('skin-title').textContent = t('skin');

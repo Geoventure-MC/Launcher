@@ -101,5 +101,20 @@
     "resolution": "Resolution",
     "notif_learn_more": "Learn more",
     "telemetry_consent": "Share anonymous statistics to help the team",
-    "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected."
+    "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected.",
+    "auto_join": "Automatically join the server on launch",
+    "profile": "Profile",
+    "profile_stats": "Statistics",
+    "profile_achievements": "Achievements",
+    "profile_leaderboard": "Leaderboard",
+    "profile_factions": "Factions",
+    "stat_playtime": "Playtime",
+    "stat_launches": "Launches",
+    "stat_last_played": "Last played",
+    "stat_by_server": "Time per server",
+    "ach_unlocked": "achievements unlocked",
+    "lb_empty": "Leaderboard coming soon.",
+    "fac_empty": "No factions yet.",
+    "fac_members": "members",
+    "fac_online": "online"
 }

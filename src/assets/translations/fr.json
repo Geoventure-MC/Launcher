@@ -100,5 +100,20 @@
     "resolution": "Résolution",
     "notif_learn_more": "En savoir plus",
     "telemetry_consent": "Partager des statistiques anonymes pour aider l'équipe",
-    "telemetry_description": "Ces données incluent votre système d'exploitation, la version du Launcher et le serveur joué. Aucune donnée personnelle n'est collectée."
+    "telemetry_description": "Ces données incluent votre système d'exploitation, la version du Launcher et le serveur joué. Aucune donnée personnelle n'est collectée.",
+    "auto_join": "Rejoindre le serveur automatiquement au lancement",
+    "profile": "Profil",
+    "profile_stats": "Statistiques",
+    "profile_achievements": "Succès",
+    "profile_leaderboard": "Classement",
+    "profile_factions": "Factions",
+    "stat_playtime": "Temps de jeu",
+    "stat_launches": "Parties lancées",
+    "stat_last_played": "Dernière partie",
+    "stat_by_server": "Temps par serveur",
+    "ach_unlocked": "succès débloqués",
+    "lb_empty": "Classement bientôt disponible.",
+    "fac_empty": "Aucune faction pour le moment.",
+    "fac_members": "membres",
+    "fac_online": "en ligne"
 }

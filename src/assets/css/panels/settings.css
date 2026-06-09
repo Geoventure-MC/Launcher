@@ -1104,3 +1104,34 @@ input:checked+.slider:before {
     cursor: not-allowed;
     transform: none !important;
 }
+
+.autojoin-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 24px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    font: 500 13px 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.8);
+    transition: all 0.2s ease;
+}
+
+.autojoin-row:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+}
+
+.autojoin-row i {
+    color: var(--accent-color, #00bd7a);
+}
+
+.autojoin-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color, #00bd7a);
+    cursor: pointer;
+}
