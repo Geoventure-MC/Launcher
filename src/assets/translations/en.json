@@ -31,7 +31,7 @@
     "news_follow_here": "You can follow all the server news here.",
     "error_contacting_server": "Error. Unable to contact the news server. Please check your configuration.",
     "server_unavailable": "Server unavailable",
-    "launch_error": "Launch failed: server unreachable. Please try again later.",
+    "launch_error": "Launch failed: unable to reach Mojang servers. Check your connection, firewall or antivirus, then try again.",
     "online": "Online",
     "patch_in_progress": "Patch in progress...",
     "starting": "Starting...",
