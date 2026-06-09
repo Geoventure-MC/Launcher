@@ -47,19 +47,24 @@ class Login {
     }
 
     async initPreviewSkin() {
-        console.log('initPreviewSkin called');
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        const websiteUrl = pkg.env === 'azuriom' ? `${baseUrl}` : this.config.azauth;
-        const uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        const account = (await this.database.get(uuid.selected, 'accounts')).value;
+        const websiteUrl = pkg.env === 'azuriom' ? `${baseUrl}` : (this.config.azauth || baseUrl);
+        const uuidRecord = await this.database.get('1234', 'accounts-selected');
+        if (!uuidRecord?.value?.selected) return;
+        const accountRecord = await this.database.get(uuidRecord.value.selected, 'accounts');
+        if (!accountRecord?.value) return;
+        const account = accountRecord.value;
 
         document.querySelector('.player-skin-title').innerHTML = `${t('skin_of')} ${account.name}`;
         document.querySelector('.skin-renderer-settings').src = `${websiteUrl}skin3d/3d-api/skin-api/${account.name}`;
     }
 
     async initOthers() {
-        const uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        const account = (await this.database.get(uuid.selected, 'accounts')).value;
+        const uuidRecord = await this.database.get('1234', 'accounts-selected');
+        if (!uuidRecord?.value?.selected) return;
+        const accountRecord = await this.database.get(uuidRecord.value.selected, 'accounts');
+        if (!accountRecord?.value) return;
+        const account = accountRecord.value;
 
         this.updateRole(account);
         this.updateMoney(account);
