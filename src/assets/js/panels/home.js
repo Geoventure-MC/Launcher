@@ -115,8 +115,28 @@ class Home {
 
     async initLaunch() {
         document.querySelector('.play-btn').addEventListener('click', async () => {
-            await this._doLaunch();
+            try {
+                await this._doLaunch();
+            } catch (err) {
+                console.error('Launch failed:', err);
+                this.handleLaunchError(err);
+            }
         });
+    }
+
+    handleLaunchError(err) {
+        const playBtn = document.querySelector('.play-btn');
+        const info = document.querySelector('.text-download');
+        const progressBar = document.querySelector('.progress-bar');
+        if (progressBar) progressBar.style.display = 'none';
+        if (info) {
+            info.style.display = 'block';
+            info.innerHTML = `<span class="red">${t('launch_error') || 'Erreur de lancement : serveur injoignable.'}</span>`;
+        }
+        if (playBtn) {
+            playBtn.style.display = 'block';
+            playBtn.disabled = false;
+        }
     }
 
     async _doLaunch() {
@@ -134,10 +154,13 @@ class Home {
 
         playBtn.style.display = "none";
         info.style.display = "block";
-        launch.Launch(opts);
 
         const launcherSettings = (await this.database.get('1234', 'launcher')).value;
         this.setupLaunchListeners(launch, info, progressBar, playBtn, launcherSettings);
+
+        // Awaited so a failed version-manifest fetch (GetInfoVersion) is caught
+        // by initLaunch's try/catch instead of becoming an uncaught rejection.
+        await launch.Launch(opts);
     }
 
     async getLaunchOptions() {

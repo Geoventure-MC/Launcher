@@ -83,6 +83,7 @@ function accountSelect(uuid) {
 }
 
 function headplayer(pseudo) {
+    if (!pseudo) return;
     const azauth = getAzAuthUrl();
     const timestamp = new Date().getTime();
     const skin_url = `${azauth}api/skin-api/avatars/face/${pseudo}/?t=${timestamp}`;
