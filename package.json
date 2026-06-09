@@ -1,8 +1,8 @@
 {
-    "name": "conflictura",
-    "productName": "Conflictura Launcher",
+    "name": "nexus",
+    "productName": "Nexus",
     "version": "4.0.18",
-    "description": "Conflictura modded server launcher",
+    "description": "Geoventure modded server launcher",
     "main": "src/app.js",
     "author": "Riptiaz/Boulldogo/Vexato/Luuxis",
     "env": "panel",
