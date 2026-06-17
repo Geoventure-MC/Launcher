@@ -77,11 +77,25 @@ Si tu as déjà le launcher, il détecte les nouvelles versions au démarrage et
 | **Java** | Java 17 inclus — rien à installer |
 | **Multi-serveur** | Bascule entre Geoventure, Elandor et Pokeland depuis le launcher |
 | **Profil joueur** | Skin 3D, grade, monnaie boutique |
-| **Statut serveur** | Joueurs en ligne en temps réel |
+| **Profile Hub** | Classement joueurs et panneau factions accessible depuis le launcher |
+| **Statut serveur** | Pills en temps réel (en ligne/hors ligne + nombre de joueurs) pour chaque serveur |
+| **Notifications** | Bandeau d'annonces in-app depuis le panel (info, warning, maintenance, event) |
 | **News** | Actualités du serveur intégrées |
+| **Résilience réseau** | Gestion robuste des erreurs : garde-fous auth, vérification `response.ok`, fallbacks 502/404, récupération d'erreur au lancement |
+| **Télémétrie (opt-in)** | Statistiques anonymes (lancements, OS, version) envoyées au panel pour le tableau de bord admin |
 | **RAM** | Configuration MIN/MAX RAM dans les réglages |
 | **Discord** | Rich Presence automatique pendant le jeu |
 | **Langues** | Français & English |
+
+---
+
+## Nouveautés v4.0.26
+
+- **Bandeau de notifications** — Les annonces du panel (info, warning, maintenance, event) s'affichent en bannière sur l'écran d'accueil. Gestion automatique de l'expiration.
+- **Profile Hub** — Nouveau panneau classement & factions : consulte les rankings serveur et les infos de ta faction directement depuis le launcher.
+- **Résilience réseau** — Gestion robuste des erreurs HTTP : garde-fous sur les URLs d'authentification, vérification `response.ok` avant parsing JSON, fallbacks gracieux pour les erreurs 502/404, et récupération au lancement (le bouton play réapparaît avec un message d'erreur au lieu de rester bloqué).
+- **Pills statut serveur** — Indicateurs en temps réel sur l'écran d'accueil : état en ligne/hors ligne et nombre de joueurs pour chaque serveur.
+- **Télémétrie opt-in** — Envoi anonyme d'événements (lancement, OS, version du launcher) vers le panel pour alimenter les statistiques admin. Activable dans les paramètres.
 
 ---
 
