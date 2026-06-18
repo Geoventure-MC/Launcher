@@ -79,6 +79,7 @@ class Home {
         this.initVideo();
         this.initAdvert();
         this.initNotifications();
+        this.initMaintenance();
         this.verifyModsBeforeLaunch();
         this.initServerSelector();
         this.initKeyboardShortcuts();
@@ -174,7 +175,64 @@ class Home {
         }
     }
 
+    // Maintenance mode: when the panel reports config.maintenance === true,
+    // block the Play button and show the maintenance message prominently.
+    initMaintenance() {
+        const isMaintenance = this.config.maintenance === true;
+        const playBtn = document.querySelector('.play-btn');
+
+        if (!isMaintenance) {
+            if (playBtn) {
+                playBtn.disabled = false;
+                playBtn.style.pointerEvents = '';
+                playBtn.style.opacity = '';
+                playBtn.style.background = '';
+            }
+            return;
+        }
+
+        if (playBtn) {
+            playBtn.disabled = true;
+            playBtn.style.pointerEvents = 'none';
+            playBtn.style.opacity = '0.6';
+            playBtn.style.background = '#b45309';
+            playBtn.title = t('maintenance_active') || 'Maintenance en cours';
+        }
+
+        this.showMaintenanceBanner();
+    }
+
+    showMaintenanceBanner() {
+        const container = document.getElementById('notifications-banner');
+        if (!container) return;
+
+        const msg = this.config.maintenance_message
+            ? sanitizeHtml(String(this.config.maintenance_message))
+            : escapeHtml(t('maintenance_active') || 'Maintenance en cours');
+
+        const el = document.createElement('div');
+        el.className = 'notification-item notification-maintenance';
+        el.innerHTML = `
+            <span class="notif-icon">🔧</span>
+            <span class="notif-message"><strong>${escapeHtml(t('maintenance_active') || 'Maintenance en cours')}</strong> — ${msg}</span>
+        `;
+        // Prepend so the maintenance notice is always shown first.
+        container.insertBefore(el, container.firstChild);
+        container.style.display = 'block';
+    }
+
     async _doLaunch() {
+        // Defense in depth: refuse to launch while the server is in maintenance.
+        if (this.config.maintenance === true) {
+            const info = document.querySelector('.text-download');
+            if (info) {
+                info.style.display = 'block';
+                info.innerHTML = `<span class="red">${escapeHtml(t('maintenance_blocked') || 'Lancement bloqué : maintenance en cours.')}</span>`;
+            }
+            this.showMaintenanceBanner();
+            return;
+        }
+
         const cheats = await this.checkForCheatMods();
         if (cheats.length > 0) {
             const proceed = await this.showCheatModal(cheats);

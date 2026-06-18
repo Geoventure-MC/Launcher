@@ -102,6 +102,8 @@
     "open_folder": "Open folder",
     "resolution": "Resolution",
     "notif_learn_more": "Learn more",
+    "maintenance_active": "Maintenance in progress",
+    "maintenance_blocked": "Launch blocked: the server is under maintenance.",
     "telemetry_consent": "Share anonymous statistics to help the team",
     "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected."
 }

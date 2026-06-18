@@ -101,6 +101,8 @@
     "open_folder": "Ouvrir le dossier",
     "resolution": "Résolution",
     "notif_learn_more": "En savoir plus",
+    "maintenance_active": "Maintenance en cours",
+    "maintenance_blocked": "Lancement bloqué : le serveur est en maintenance.",
     "telemetry_consent": "Partager des statistiques anonymes pour aider l'équipe",
     "telemetry_description": "Ces données incluent votre système d'exploitation, la version du Launcher et le serveur joué. Aucune donnée personnelle n'est collectée."
 }
