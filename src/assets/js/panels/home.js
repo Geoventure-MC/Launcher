@@ -320,11 +320,46 @@ class Home {
     }
 
     async initStatusServer() {
-        const nameServer = document.querySelector('.server-text .name');
+        // Prefer the panel's /utils/servers-status (it already SLP-pings every
+        // server server-side, incl. the default) to avoid double-pinging the
+        // default server. Fall back to a direct SLP ping if it's unavailable.
+        const statuses = await this.fetchServersStatus();
+        if (statuses) {
+            this.refreshAllServersStatus(statuses);
+            const def = statuses.find(s => s.is_default) || statuses[0];
+            if (def) {
+                this.renderDefaultServerStatus({
+                    online: !!def.online,
+                    nameServer: def.name,
+                    ms: def.latency,
+                    players: def.players,
+                });
+                return;
+            }
+        }
+
+        await this.pingDefaultServerDirect();
+    }
+
+    renderDefaultServerStatus({ online, nameServer, ms, players }) {
+        const nameEl = document.querySelector('.server-text .name');
         const serverMs = document.querySelector('.server-text .desc');
         const playersConnected = document.querySelector('.etat-text .text');
-        const online = document.querySelector(".etat-text .online");
+        const onlineEl = document.querySelector(".etat-text .online");
 
+        if (online) {
+            nameEl.textContent = nameServer || this.config.status?.nameServer || '';
+            const msText = ms != null ? ` - ${ms}${t('server_ping')}` : '';
+            serverMs.innerHTML = `<span class="green">${t('server_online')}</span>${msText}`;
+            onlineEl.classList.toggle("off");
+            if (players != null) playersConnected.textContent = players;
+        } else {
+            nameEl.textContent = t('server_unavailable');
+            serverMs.innerHTML = `<span class="red">${t('server_closed')}</span>`;
+        }
+    }
+
+    async pingDefaultServerDirect() {
         const status = this.config.status || {};
         let ip = status.ip;
         let port = status.port;
@@ -350,41 +385,48 @@ class Home {
         try {
             const serverPing = await new Status(ip, port).getStatus();
             if (!serverPing.error) {
-                nameServer.textContent = this.config.status.nameServer;
-                serverMs.innerHTML = `<span class="green">${t('server_online')}</span> - ${serverPing.ms}${t('server_ping')}`;
-                online.classList.toggle("off");
-                playersConnected.textContent = serverPing.playersConnect;
-
-                // Also refresh all-servers status for the selector pills
-                this.refreshAllServersStatus(serverPing);
+                this.renderDefaultServerStatus({
+                    online: true,
+                    nameServer: this.config.status.nameServer,
+                    ms: serverPing.ms,
+                    players: serverPing.playersConnect,
+                });
             } else {
-                nameServer.textContent = t('server_unavailable');
-                serverMs.innerHTML = `<span class="red">${t('server_closed')}</span>`;
+                this.renderDefaultServerStatus({ online: false });
             }
         } catch (e) {
-            nameServer.textContent = t('server_unavailable');
-            serverMs.innerHTML = `<span class="red">${t('server_closed')}</span>`;
+            this.renderDefaultServerStatus({ online: false });
         }
     }
 
-    async refreshAllServersStatus(currentServerPing) {
-        const currentUrl = localStorage.getItem('geoventure_server_url') || settings_url;
-        const activePill = document.querySelector('.server-pill.active');
-        if (activePill && currentServerPing && !currentServerPing.error) {
-            const count = currentServerPing.playersConnect ?? 0;
-            activePill.title = `${activePill.title.split('—')[0].trim()} — ${count} ${t('players_online') || 'joueurs'}`;
-        }
-
+    async fetchServersStatus() {
         try {
             const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
             const res = await fetch(`${base}utils/servers-status`, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(5000),
             });
-            if (!res.ok) return;
+            if (!res.ok) return null;
             const statuses = await res.json();
-            if (!Array.isArray(statuses)) return;
+            return Array.isArray(statuses) ? statuses : null;
+        } catch {
+            return null;
+        }
+    }
 
+    refreshAllServersStatus(statuses) {
+        if (!Array.isArray(statuses)) return;
+
+        const activePill = document.querySelector('.server-pill.active');
+        if (activePill) {
+            const activeId = activePill.dataset.serverId;
+            const active = statuses.find(s => String(s.id) === String(activeId));
+            if (active && active.online && active.players != null) {
+                activePill.title = `${activePill.title.split('—')[0].trim()} — ${active.players} ${t('players_online') || 'joueurs'}`;
+            }
+        }
+
+        try {
             for (const status of statuses) {
                 const pill = document.querySelector(`.server-pill[data-server-id="${status.id}"]`);
                 if (!pill) continue;

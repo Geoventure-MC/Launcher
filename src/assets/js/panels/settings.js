@@ -557,7 +557,6 @@ class Settings {
     }
 
     async initPreviewSkin() {
-        console.log('initPreviewSkin called');
         const azauth = this.getAzAuthUrl();
         const uuidRec = await this.database.get('1234', 'accounts-selected');
         if (!uuidRec?.value?.selected) return;
