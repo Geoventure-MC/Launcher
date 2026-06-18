@@ -2,46 +2,42 @@ name: Launcher Build & Release
 
 on:
   push:
-    branches: [ master ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  version-bump:
+  prepare:
     runs-on: ubuntu-latest
     outputs:
-      sha: ${{ steps.push.outputs.sha }}
-      version: ${{ steps.push.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Configure git
+      - name: Determine version
+        id: version
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump patch version
-        id: push
-        run: |
-          npm version patch --no-git-tag-version
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          git add package.json
-          git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
-          git push origin master
-          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Bumped to v$NEW_VERSION"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG_VERSION="${{ github.ref_name }}"
+            TAG_VERSION="${TAG_VERSION#v}"
+            npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+            echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+            echo "Using tag version: $TAG_VERSION"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "Using package.json version: $VERSION"
+          fi
 
   build-launcher:
-    needs: version-bump
+    needs: prepare
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -55,8 +51,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.version-bump.outputs.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -66,6 +60,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
+
+      - name: Set version from tag
+        if: github.ref_type == 'tag'
+        run: |
+          TAG_VERSION="${{ github.ref_name }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+        shell: bash
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -91,24 +93,24 @@ jobs:
         shell: bash
 
   create-release-notes:
-    needs: [version-bump, build-launcher]
+    needs: [prepare, build-launcher]
     runs-on: ubuntu-latest
     steps:
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.version-bump.outputs.version }}
-          name: "Conflictura Launcher v${{ needs.version-bump.outputs.version }}"
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: "Conflictura Launcher v${{ needs.prepare.outputs.version }}"
           body: |
-            ## Conflictura Launcher v${{ needs.version-bump.outputs.version }}
+            ## Conflictura Launcher v${{ needs.prepare.outputs.version }}
 
             ### Téléchargement
 
             | Plateforme | Fichier |
             |---|---|
-            | **Windows** | `Conflictura Launcher Setup ${{ needs.version-bump.outputs.version }}.exe` |
-            | **macOS Apple Silicon** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}-arm64.dmg` |
-            | **macOS Intel** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}.dmg` |
-            | **Linux** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}.AppImage` |
+            | **Windows** | `Conflictura Launcher Setup ${{ needs.prepare.outputs.version }}.exe` |
+            | **macOS Apple Silicon** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}-arm64.dmg` |
+            | **macOS Intel** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}.dmg` |
+            | **Linux** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}.AppImage` |
 
             ### Mise à jour automatique
             Si tu as déjà le launcher installé, il se met à jour automatiquement au prochain démarrage — pas besoin de réinstaller.
