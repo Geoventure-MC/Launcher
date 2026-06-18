@@ -55,40 +55,54 @@ class database {
 
     add(data, type) {
         let store = this.getStore(type);
-        return store.add({ key: this.genKey(data.uuid), value: data });
+        return new Promise((resolve, reject) => {
+            let request = store.add({ key: this.genKey(data.uuid), value: data });
+            request.onsuccess = (event) => {
+                resolve(event.target.result);
+            }
+            request.onerror = () => reject(request.error);
+        });
     }
 
     get(keys, type) {
         let store = this.getStore(type);
         let Key = this.genKey(keys);
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             let get = store.get(Key);
             get.onsuccess = (event) => {
                 resolve(event.target.result);
             }
+            get.onerror = () => reject(get.error);
         });
     }
 
     getAll(type) {
         let store = this.getStore(type);
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             let getAll = store.getAll();
             getAll.onsuccess = (event) => {
                 resolve(event.target.result);
             }
+            getAll.onerror = () => reject(getAll.error);
         });
     }
 
     update(data, type) {
         let self = this;
-        return new Promise(async (resolve) => {
+        return new Promise((resolve, reject) => {
             let store = self.getStore(type);
             let keyCursor = store.openCursor(self.genKey(data.uuid));
-            keyCursor.onsuccess = async (event) => {
+            keyCursor.onsuccess = (event) => {
                 let cursor = event.target.result;
+                if (!cursor) {
+                    // No matching record to update — settle instead of hanging.
+                    resolve(null);
+                    return;
+                }
                 for (let [key, value] of Object.entries({ value: data })) cursor.value[key] = value;
                 resolve(cursor.update(cursor.value));
             }
+            keyCursor.onerror = () => reject(keyCursor.error);
         });
     }
 
