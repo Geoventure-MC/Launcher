@@ -320,7 +320,12 @@ class Home {
         launch.on('patch', patch => info.innerHTML = t('patch_in_progress'));
         launch.on('data', e => this.handleLaunchData(e, info, progressBar, playBtn, launcherSettings));
         launch.on('close', code => this.handleLaunchClose(code, info, progressBar, playBtn, launcherSettings));
-        launch.on('error', err => console.log(err));
+        launch.on('error', err => {
+            this.appendLog(err && err.error ? err.error : String(err));
+            const logToggle = document.getElementById('log-toggle-btn');
+            if (logToggle) logToggle.style.display = '';
+            console.log(err);
+        });
     }
 
     updateProgressBar(progressBar, info, progress, size, text) {
@@ -856,6 +861,21 @@ class Home {
         const logConsole = document.getElementById('log-console');
         const closeBtn = document.getElementById('log-close-btn');
         const clearBtn = document.getElementById('log-clear-btn');
+        const copyBtn = document.getElementById('log-copy-btn');
+        const exportBtn = document.getElementById('log-export-btn');
+        const autoBtn = document.getElementById('log-autoscroll-btn');
+
+        // In-memory ring buffer of raw log lines (capped to avoid memory bloat).
+        this.logBuffer = [];
+        this.logAutoScroll = true;
+
+        // Static labels (i18n).
+        const title = document.getElementById('log-title');
+        if (title) title.textContent = t('logs_console') || 'Console Minecraft';
+        if (clearBtn) clearBtn.textContent = t('logs_clear') || 'Effacer';
+        if (copyBtn) copyBtn.textContent = t('logs_copy') || 'Copier';
+        if (exportBtn) exportBtn.textContent = t('logs_export') || 'Exporter';
+        if (autoBtn) autoBtn.textContent = t('logs_autoscroll') || 'Auto';
 
         if (!logConsole) return;
 
@@ -873,8 +893,45 @@ class Home {
 
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
+                this.logBuffer = [];
                 const body = document.getElementById('log-body');
                 if (body) body.innerHTML = '';
+            });
+        }
+
+        if (autoBtn) {
+            autoBtn.addEventListener('click', () => {
+                this.logAutoScroll = !this.logAutoScroll;
+                autoBtn.classList.toggle('log-btn-active', this.logAutoScroll);
+                if (this.logAutoScroll) {
+                    const body = document.getElementById('log-body');
+                    if (body) body.scrollTop = body.scrollHeight;
+                }
+            });
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    const { clipboard } = require('electron');
+                    clipboard.writeText(this.logBuffer.join('\n'));
+                    copyBtn.textContent = t('logs_copied') || 'Copié !';
+                    setTimeout(() => { copyBtn.textContent = t('logs_copy') || 'Copier'; }, 1500);
+                } catch (err) {
+                    console.error('Copy logs failed:', err);
+                }
+            });
+        }
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', async () => {
+                try {
+                    // The save dialog is shown by the main process (no remote module).
+                    const savePath = await ipcRenderer.invoke('save-logs-dialog');
+                    if (savePath) fs.writeFileSync(savePath, this.logBuffer.join('\n'), 'utf8');
+                } catch (err) {
+                    console.error('Export logs failed:', err);
+                }
             });
         }
     }
@@ -897,21 +954,43 @@ class Home {
         const body = document.getElementById('log-body');
         if (!body) return;
 
-        const line = document.createElement('div');
-        line.classList.add('log-line');
+        // A single emit may carry several physical lines; split them so the
+        // buffer cap and colouring apply per line.
+        const lines = String(text).replace(/\r/g, '').split('\n').filter(l => l.length > 0);
+        if (!lines.length) return;
 
-        const textLower = text.toLowerCase();
-        if (textLower.includes('error') || textLower.includes('exception') || textLower.includes('fatal')) {
-            line.classList.add('log-error');
-        } else if (textLower.includes('warn')) {
-            line.classList.add('log-warn');
-        } else {
-            line.classList.add('log-info');
+        if (!Array.isArray(this.logBuffer)) this.logBuffer = [];
+        const MAX_LINES = 2000;
+
+        for (const text of lines) {
+            this.logBuffer.push(text);
+
+            const line = document.createElement('div');
+            line.classList.add('log-line');
+
+            const textLower = text.toLowerCase();
+            if (textLower.includes('error') || textLower.includes('exception') || textLower.includes('fatal')) {
+                line.classList.add('log-error');
+            } else if (textLower.includes('warn')) {
+                line.classList.add('log-warn');
+            } else {
+                line.classList.add('log-info');
+            }
+
+            // textContent (no innerHTML) — log lines are never interpreted as HTML.
+            line.textContent = text;
+            body.appendChild(line);
         }
 
-        line.textContent = text;
-        body.appendChild(line);
-        body.scrollTop = body.scrollHeight;
+        // Cap both the in-memory buffer and the DOM node count.
+        if (this.logBuffer.length > MAX_LINES) {
+            this.logBuffer.splice(0, this.logBuffer.length - MAX_LINES);
+        }
+        while (body.childElementCount > MAX_LINES) {
+            body.removeChild(body.firstChild);
+        }
+
+        if (this.logAutoScroll !== false) body.scrollTop = body.scrollHeight;
     }
 }
 

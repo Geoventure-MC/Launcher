@@ -901,6 +901,12 @@ body::-webkit-scrollbar {
     padding: 2px 8px;
 }
 
+.log-btn.log-btn-active {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: rgba(74, 222, 128, 0.4);
+    color: #4ade80;
+}
+
 .log-body {
     flex: 1;
     overflow-y: auto;
