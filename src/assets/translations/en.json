@@ -104,6 +104,15 @@
     "notif_learn_more": "Learn more",
     "maintenance_active": "Maintenance in progress",
     "maintenance_blocked": "Launch blocked: the server is under maintenance.",
+    "profile_leaderboard": "Player ranking",
+    "profile_factions": "Factions",
+    "profile_no_leaderboard": "No ranking available.",
+    "profile_leaderboard_error": "Ranking unavailable.",
+    "profile_no_factions": "No faction yet.",
+    "profile_factions_error": "Factions unavailable.",
+    "profile_rank": "Rank",
+    "profile_members": "members",
+    "profile_you": "you",
     "telemetry_consent": "Share anonymous statistics to help the team",
     "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected."
 }
