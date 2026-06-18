@@ -9,6 +9,7 @@
 
 import { database, changePanel, accountSelect, Slider, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
 import { isConsented, setConsent } from '../utils/telemetry.js';
+const { getGameDirectory } = require('../utils/gamedir.js');
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -21,6 +22,11 @@ const settings_url = localStorage.getItem('geoventure_server_url') || (pkg.user 
 
 class Settings {
     static id = "settings";
+
+    // Per-server game directory (default server keeps its legacy path).
+    gameDir() {
+        return getGameDirectory(dataDirectory, this.config);
+    }
 
     async init(config) {
         this.config = config;
@@ -319,8 +325,9 @@ class Settings {
     }
 
     async updateModsConfig() {
-        const modsDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'mods');
-        const launcherConfigDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'launcher_config');
+        const gameDir = this.gameDir();
+        const modsDir = path.join(gameDir, 'mods');
+        const launcherConfigDir = path.join(gameDir, 'launcher_config');
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
 
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
@@ -362,8 +369,9 @@ class Settings {
     }
 
     async initOptionalMods() {
-        const modsDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'mods');
-        const launcherConfigDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'launcher_config');
+        const gameDir = this.gameDir();
+        const modsDir = path.join(gameDir, 'mods');
+        const launcherConfigDir = path.join(gameDir, 'launcher_config');
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
         const modsListElement = document.getElementById('mods-list');
 
@@ -749,11 +757,10 @@ class Settings {
     initAdvanced() {
         const openFolderBtn = document.getElementById('open-folder-btn');
         if (openFolderBtn) {
-            const gameDir = path.join(
-                dataDirectory,
-                process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`
-            );
+            const gameDir = this.gameDir();
             openFolderBtn.addEventListener('click', () => {
+                // Ensure the active server's directory exists before opening it.
+                try { if (!fs.existsSync(gameDir)) fs.mkdirSync(gameDir, { recursive: true }); } catch (e) { /* non-blocking */ }
                 shell.openPath(gameDir);
             });
         }
@@ -792,11 +799,7 @@ class Settings {
                 return;
             }
 
-            const modsDir = path.join(
-                dataDirectory,
-                process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`,
-                'mods'
-            );
+            const modsDir = path.join(this.gameDir(), 'mods');
 
             listEl.innerHTML = '';
 

@@ -10,6 +10,7 @@
 import { logger, database, changePanel, t } from '../utils.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
+const { getGameDirectory } = require('../utils/gamedir.js');
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -272,7 +273,7 @@ class Home {
             url: urlpkg,
             authenticator: account,
             timeout: 10000,
-            path: `${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`,
+            path: this.gameDir(),
             version: this.config.game_version,
             detached: launcherSettings.launcher.close === 'close-all' ? false : true,
             downloadFileMultiple: 30,
@@ -300,6 +301,11 @@ class Home {
     getBaseUrl() {
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
         return pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/files` : `${baseUrl}data/`;
+    }
+
+    // Per-server game directory (the default server keeps its legacy path).
+    gameDir() {
+        return getGameDirectory(dataDirectory, this.config);
     }
 
     setupLaunchListeners(launch, info, progressBar, playBtn, launcherSettings) {
@@ -654,8 +660,9 @@ class Home {
     }
 
     async verifyModsBeforeLaunch() {
-        const modsDir = path.join(dataDirectory, process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`, 'mods');
-        const launcherConfigDir = path.join(dataDirectory, process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`, 'launcher_config');
+        const gameDir = this.gameDir();
+        const modsDir = path.join(gameDir, 'mods');
+        const launcherConfigDir = path.join(gameDir, 'launcher_config');
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
 
         if (!fs.existsSync(modsDir) || !fs.existsSync(modsConfigFile)) {
@@ -775,11 +782,7 @@ class Home {
 
     async checkForCheatMods() {
         try {
-            const modsDir = path.join(
-                dataDirectory,
-                process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`,
-                'mods'
-            );
+            const modsDir = path.join(this.gameDir(), 'mods');
 
             if (!fs.existsSync(modsDir)) return [];
 
@@ -833,11 +836,7 @@ class Home {
 
             removeBtn.onclick = () => {
                 try {
-                    const modsDir = path.join(
-                        dataDirectory,
-                        process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`,
-                        'mods'
-                    );
+                    const modsDir = path.join(this.gameDir(), 'mods');
                     cheats.forEach(file => {
                         const filePath = path.join(modsDir, file);
                         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
