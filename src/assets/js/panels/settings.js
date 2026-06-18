@@ -767,7 +767,8 @@ class Settings {
         }
 
         try {
-            const response = await fetch(`${baseUrl}api/centralcorp/community-mods`);
+            let response = await fetch(`${baseUrl}utils/community-mods`);
+            if (!response.ok) response = await fetch(`${baseUrl}api/centralcorp/community-mods`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const mods = await response.json();
 
