@@ -42,6 +42,8 @@
     "optional_mods_not_downloaded": "⚠️ Les mods optionnels n'ont pas encore été téléchargés. Veuillez lancer une première fois le jeu pour pouvoir les configurer, puis redémarrez le launcher. ⚠️",
     "total_ram": "RAM Totale",
     "free_ram": "RAM Disponible",
+    "privacy_title": "Confidentialité",
+    "telemetry_consent": "Partager des statistiques anonymes d'utilisation",
     "close_launcher": "Fermer le launcher après le démarrage du jeu.",
     "close_all": "Fermer le jeu si le launcher est fermé.",
     "open_launcher": "Garder le launcher ouvert après le démarrage du jeu.",

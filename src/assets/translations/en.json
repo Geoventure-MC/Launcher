@@ -43,6 +43,8 @@
     "optional_mods_not_downloaded": "⚠️ Optional mods have not yet been downloaded. Please launch the game once to configure them, then restart the launcher. ⚠️",
     "total_ram": "Total RAM",
     "free_ram": "Free RAM",
+    "privacy_title": "Privacy",
+    "telemetry_consent": "Share anonymous usage statistics",
     "close_launcher": "Close the launcher after the game starts.",
     "close_all": "Close the game if the launcher is closed.",
     "open_launcher": "Keep the launcher open after the game starts.",

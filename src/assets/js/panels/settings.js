@@ -8,6 +8,7 @@
 'use strict';
 
 import { database, changePanel, accountSelect, Slider, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
+import { isConsented, setConsent } from '../utils/telemetry.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -691,6 +692,11 @@ class Settings {
         document.getElementById('mods-info').innerHTML = t('mods_detailed_info');
         document.getElementById('skin-title').textContent = t('skin');
 
+        const privacyTitle = document.getElementById('privacy-title');
+        if (privacyTitle) privacyTitle.textContent = t('privacy_title') || 'Confidentialité';
+        const telemetryLabel = document.getElementById('telemetry-consent-label');
+        if (telemetryLabel) telemetryLabel.textContent = t('telemetry_consent') || "Partager des statistiques anonymes d'utilisation";
+
         const dropzoneText = document.getElementById('dropzone-text');
         if (dropzoneText) dropzoneText.textContent = t('dropzone_drag');
         const dropzoneSubtext = document.querySelector('.dropzone-subtext');
@@ -753,6 +759,16 @@ class Settings {
             });
         }
         this.initResolution();
+        this.initTelemetryConsent();
+    }
+
+    initTelemetryConsent() {
+        const checkbox = document.getElementById('telemetry-consent');
+        if (!checkbox) return;
+        checkbox.checked = isConsented();
+        checkbox.addEventListener('change', () => {
+            setConsent(checkbox.checked);
+        });
     }
 
     async initCommunityMods() {
