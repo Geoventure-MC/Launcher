@@ -29,6 +29,37 @@ const CHEAT_PATTERNS = [
 
 let sessionStart = Date.now();
 
+// Module-level HTML escaper (reused by news/advert/video rendering).
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Validate a value is a safe http(s) URL; returns the URL or null.
+function safeHttpUrl(url) {
+    try {
+        const u = new URL(String(url));
+        return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : null;
+    } catch {
+        return null;
+    }
+}
+
+// Strip dangerous constructs from RSS/panel-provided HTML content.
+function sanitizeHtml(html) {
+    return String(html)
+        .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+        .replace(/<\s*script[^>]*>/gi, '')
+        .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+        .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+        .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+        .replace(/javascript:/gi, '');
+}
+
 class Home {
     static id = "home";
 
@@ -88,18 +119,21 @@ class Home {
     createNewsBlock(container, title, content, author = '', date = {}, image = null) {
         const blockNews = document.createElement('div');
         blockNews.classList.add('news-block', 'opacity-1');
+        const safeImage = image ? safeHttpUrl(image) : null;
+        const safeDay = date && date.day ? escapeHtml(date.day) : '';
+        const safeMonth = date && date.month ? escapeHtml(date.month) : '';
         blockNews.innerHTML = `
             <div class="news-header">
                 <div class="header-text">
-                    <div class="title">${title}</div>
+                    <div class="title">${escapeHtml(title)}</div>
                 </div>
-                ${date.day ? `<div class="date"><div class="day">${date.day}</div><div class="month">${date.month}</div></div>` : ''}
+                ${date && date.day ? `<div class="date"><div class="day">${safeDay}</div><div class="month">${safeMonth}</div></div>` : ''}
             </div>
-            ${image ? `<div class="news-image" style="background-image: url('${image}');"></div>` : ''}
+            ${safeImage ? `<div class="news-image" style="background-image: url('${escapeHtml(safeImage)}');"></div>` : ''}
             <div class="news-content">
                 <div class="bbWrapper">
-                    <p>${content}</p>
-                    ${author ? `<p class="news-author"><span>${author}</span></p>` : ''}
+                    <p>${sanitizeHtml(content)}</p>
+                    ${author ? `<p class="news-author"><span>${escapeHtml(author)}</span></p>` : ''}
                 </div>
             </div>`;
         container.appendChild(blockNews);
@@ -444,6 +478,13 @@ class Home {
         const videoType = this.config.video_type;
         let youtubeEmbedUrl;
 
+        // Only accept a valid 11-char YouTube video id to avoid src injection.
+        if (!/^[A-Za-z0-9_-]{11}$/.test(String(youtubeVideoId || ''))) {
+            console.error('Invalid YouTube video id specified in the configuration.');
+            videoContainer.style.display = 'none';
+            return;
+        }
+
         if (videoType === 'short') {
             youtubeEmbedUrl = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&playsinline=1`;
         } else if (videoType === 'video') {
@@ -464,7 +505,7 @@ class Home {
         if (thumbnailImg && playButton) {
             thumbnailImg.src = youtubeThumbnailUrl;
             videoThumbnail.addEventListener('click', () => {
-                videoThumbnail.innerHTML = `<iframe width="500" height="290" src="${youtubeEmbedUrl}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
+                videoThumbnail.innerHTML = `<iframe width="500" height="290" src="${youtubeEmbedUrl}" title="${escapeHtml(t('community_video') || 'Community video')}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
             });
         }
     }
@@ -476,7 +517,7 @@ class Home {
             const firstParagraph = message.split('</p>')[0] + '</p>';
             const scrollingText = document.createElement('div');
             scrollingText.classList.add('scrolling-text');
-            scrollingText.innerHTML = `${firstParagraph}`;
+            scrollingText.innerHTML = sanitizeHtml(firstParagraph);
             advertBanner.innerHTML = '';
             advertBanner.appendChild(scrollingText);
             scrollingText.classList.toggle('no-scroll', !this.config.alert_scroll);
