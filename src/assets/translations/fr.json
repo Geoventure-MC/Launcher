@@ -124,5 +124,12 @@
     "changelog_error": "Impossible de charger les nouveautés (hors ligne ou limite GitHub atteinte).",
     "changelog_empty": "Aucune version publiée.",
     "changelog_no_notes": "Pas de notes de version.",
-    "changelog_new": "NOUVEAU"
+    "changelog_new": "NOUVEAU",
+    "phase_download": "Téléchargement",
+    "phase_verify": "Vérification",
+    "phase_extract": "Extraction",
+    "phase_patch": "Application du patch",
+    "remaining": "restant",
+    "unit_mb": "Mo",
+    "unit_gb": "Go"
 }

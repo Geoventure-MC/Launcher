@@ -125,5 +125,12 @@
     "changelog_error": "Unable to load the changelog (offline or GitHub rate limit reached).",
     "changelog_empty": "No releases published.",
     "changelog_no_notes": "No release notes.",
-    "changelog_new": "NEW"
+    "changelog_new": "NEW",
+    "phase_download": "Downloading",
+    "phase_verify": "Verifying",
+    "phase_extract": "Extracting",
+    "phase_patch": "Applying patch",
+    "remaining": "remaining",
+    "unit_mb": "MB",
+    "unit_gb": "GB"
 }

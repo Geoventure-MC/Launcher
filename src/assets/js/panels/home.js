@@ -70,6 +70,7 @@ class Home {
         this.news = await news;
         this.currentFile = '';
         this.currentSpeed = 0;
+        this._resetProgressTracking();
         sessionStart = Date.now();
 
         this.setStaticTexts();
@@ -309,21 +310,38 @@ class Home {
     }
 
     setupLaunchListeners(launch, info, progressBar, playBtn, launcherSettings) {
-        launch.on('extract', extract => console.log(extract));
+        this._resetProgressTracking();
+        launch.on('extract', extract => {
+            // The lib emits the entry name being extracted (when available).
+            if (extract && typeof extract === 'string') this.currentFile = extract;
+            this._setPhase('extract');
+            console.log(extract);
+        });
         launch.on('progress', (progress, size, file) => {
             if (file) this.currentFile = file;
+            this._setPhase('download');
             this.updateProgressBar(progressBar, info, progress, size, t('download'));
         });
         launch.on('check', (progress, size, file) => {
             if (file) this.currentFile = file;
+            this._setPhase('check');
             this.updateProgressBar(progressBar, info, progress, size, t('verification'));
         });
-        launch.on('estimated', time => console.log(this.formatTime(time)));
-        launch.on('speed', speed => {
-            this.currentSpeed = speed;
-            console.log(`${(speed / 1067008).toFixed(2)} Mb/s`);
+        // Lib-provided ETA — used only as a fallback when we can't compute one.
+        launch.on('estimated', time => {
+            const secs = Number(time);
+            this.libEta = Number.isFinite(secs) && secs >= 0 ? secs : null;
         });
-        launch.on('patch', patch => info.innerHTML = t('patch_in_progress'));
+        // Lib-provided speed — used as a fallback when our byte-delta estimate
+        // isn't available yet (e.g. first progress event).
+        launch.on('speed', speed => {
+            const s = Number(speed);
+            this.libSpeed = Number.isFinite(s) && s >= 0 ? s : 0;
+        });
+        launch.on('patch', patch => {
+            this._setPhase('patch');
+            info.innerHTML = t('patch_in_progress');
+        });
         launch.on('data', e => this.handleLaunchData(e, info, progressBar, playBtn, launcherSettings));
         launch.on('close', code => this.handleLaunchClose(code, info, progressBar, playBtn, launcherSettings));
         launch.on('error', err => {
@@ -334,20 +352,122 @@ class Home {
         });
     }
 
+    // Reset the per-launch byte/speed tracking state.
+    _resetProgressTracking() {
+        this.currentFile = '';
+        this.currentSpeed = 0;   // smoothed bytes/sec (computed from deltas)
+        this.libSpeed = 0;       // bytes/sec reported by the lib (fallback)
+        this.libEta = null;      // seconds reported by the lib (fallback)
+        this.currentPhase = '';
+        this._lastBytes = null;
+        this._lastTime = null;
+    }
+
+    // Track the current phase; resets the speed estimator on phase change so the
+    // smoothed rate doesn't carry over from a different operation.
+    _setPhase(phase) {
+        if (this.currentPhase !== phase) {
+            this.currentPhase = phase;
+            this._lastBytes = null;
+            this._lastTime = null;
+            this.currentSpeed = 0;
+        }
+    }
+
+    // Compute a smoothed download speed (bytes/sec) from byte deltas between
+    // progress events. Returns 0 until enough data is available.
+    _computeSpeed(progress) {
+        const now = Date.now();
+        if (typeof progress !== 'number' || !Number.isFinite(progress)) return this.currentSpeed;
+
+        if (this._lastTime != null && this._lastBytes != null) {
+            const dt = (now - this._lastTime) / 1000;
+            const db = progress - this._lastBytes;
+            // Ignore zero/negative time slices and counter resets (db < 0).
+            if (dt > 0.05 && db >= 0) {
+                const instant = db / dt;
+                // Exponential smoothing to avoid jumpy readings.
+                this.currentSpeed = this.currentSpeed > 0
+                    ? this.currentSpeed * 0.7 + instant * 0.3
+                    : instant;
+                this._lastTime = now;
+                this._lastBytes = progress;
+            }
+        } else {
+            this._lastTime = now;
+            this._lastBytes = progress;
+        }
+        return this.currentSpeed;
+    }
+
+    _phaseLabel(phase, fallback) {
+        const keys = {
+            download: 'phase_download',
+            check: 'phase_verify',
+            extract: 'phase_extract',
+            patch: 'phase_patch',
+        };
+        const key = keys[phase];
+        return (key && t(key) !== key) ? t(key) : fallback;
+    }
+
+    formatBytes(bytes) {
+        if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '';
+        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} ${t('unit_gb') || 'Go'}`;
+        return `${(bytes / 1048576).toFixed(1)} ${t('unit_mb') || 'Mo'}`;
+    }
+
     updateProgressBar(progressBar, info, progress, size, text) {
         progressBar.style.display = "block";
-        const pct = ((progress / size) * 100).toFixed(0);
-        const speedMb = this.currentSpeed > 0 ? `${(this.currentSpeed / 1067008).toFixed(1)} MB/s` : '';
-        const fileName = this.currentFile ? path.basename(this.currentFile) : '';
+        const hasBytes = typeof progress === 'number' && typeof size === 'number' && size > 0;
+        const pct = hasBytes ? ((progress / size) * 100).toFixed(0) : '0';
 
-        let html = `${text} ${pct}%`;
-        if (fileName) html += `<div class="progress-file" title="${fileName}">${fileName}</div>`;
-        if (speedMb) html += `<div class="progress-speed">${speedMb}</div>`;
+        // Prefer our byte-delta estimate; fall back to the lib's speed event.
+        let bps = this.currentPhase === 'download' ? this._computeSpeed(progress) : 0;
+        if (!(bps > 0) && this.libSpeed > 0) bps = this.libSpeed;
+        const speedStr = bps > 0 ? `${(bps / 1048576).toFixed(1)} ${t('unit_mb') || 'Mo'}/s` : '';
+
+        // ETA: prefer computed (remaining bytes / speed), fall back to lib value.
+        let etaStr = '';
+        if (hasBytes && bps > 0) {
+            const remaining = Math.max(0, size - progress);
+            etaStr = this._formatEta(remaining / bps);
+        } else if (this.libEta != null) {
+            etaStr = this._formatEta(this.libEta);
+        }
+
+        const phaseLabel = this._phaseLabel(this.currentPhase, text);
+        const fileName = this.currentFile ? path.basename(this.currentFile) : '';
+        const sizeStr = hasBytes ? `${this.formatBytes(progress)} / ${this.formatBytes(size)}` : '';
+
+        // Header: "Téléchargement 42%"
+        let html = `<div class="progress-head">${escapeHtml(phaseLabel)} ${pct}%</div>`;
+        if (fileName) html += `<div class="progress-file" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</div>`;
+        const meta = [sizeStr, speedStr, etaStr ? `${etaStr} ${t('remaining') || 'restant'}` : ''].filter(Boolean);
+        if (meta.length) html += `<div class="progress-meta">${escapeHtml(meta.join(' · '))}</div>`;
         info.innerHTML = html;
 
-        ipcRenderer.send('main-window-progress', { progress, size });
-        progressBar.value = progress;
-        progressBar.max = size;
+        if (hasBytes) {
+            ipcRenderer.send('main-window-progress', { progress, size });
+            progressBar.value = progress;
+            progressBar.max = size;
+        }
+    }
+
+    _formatEta(seconds) {
+        if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) return '';
+        const s = Math.round(seconds);
+        if (s >= 3600) {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            return `${h}h${String(m).padStart(2, '0')}`;
+        }
+        if (s >= 60) {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${m}m${String(sec).padStart(2, '0')}s`;
+        }
+        return `${s}s`;
     }
 
     formatTime(time) {
