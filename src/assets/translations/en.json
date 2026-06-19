@@ -118,5 +118,12 @@
     "profile_members": "members",
     "profile_you": "you",
     "telemetry_consent": "Share anonymous statistics to help the team",
-    "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected."
+    "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected.",
+    "changelog_title": "What's new",
+    "changelog_view_github": "View on GitHub",
+    "changelog_loading": "Loading changelog…",
+    "changelog_error": "Unable to load the changelog (offline or GitHub rate limit reached).",
+    "changelog_empty": "No releases published.",
+    "changelog_no_notes": "No release notes.",
+    "changelog_new": "NEW"
 }

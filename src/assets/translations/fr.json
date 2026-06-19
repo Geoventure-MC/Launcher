@@ -117,5 +117,12 @@
     "profile_members": "membres",
     "profile_you": "vous",
     "telemetry_consent": "Partager des statistiques anonymes pour aider l'équipe",
-    "telemetry_description": "Ces données incluent votre système d'exploitation, la version du Launcher et le serveur joué. Aucune donnée personnelle n'est collectée."
+    "telemetry_description": "Ces données incluent votre système d'exploitation, la version du Launcher et le serveur joué. Aucune donnée personnelle n'est collectée.",
+    "changelog_title": "Nouveautés",
+    "changelog_view_github": "Voir sur GitHub",
+    "changelog_loading": "Chargement des nouveautés…",
+    "changelog_error": "Impossible de charger les nouveautés (hors ligne ou limite GitHub atteinte).",
+    "changelog_empty": "Aucune version publiée.",
+    "changelog_no_notes": "Pas de notes de version.",
+    "changelog_new": "NOUVEAU"
 }

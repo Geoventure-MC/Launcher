@@ -645,6 +645,11 @@ class Home {
         document.querySelector('.profile-btn')?.addEventListener('click', () => {
             changePanel('profile');
         });
+        const changelogBtn = document.querySelector('.changelog-btn');
+        if (changelogBtn) {
+            changelogBtn.title = t('changelog_title') || 'Nouveautés';
+            changelogBtn.addEventListener('click', () => changePanel('changelog'));
+        }
     }
 
     async getDate(e) {
