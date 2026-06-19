@@ -14,6 +14,13 @@ const fs = require('fs');
 
 const UpdateWindow = require("./assets/js/windows/updateWindow.js");
 const MainWindow = require("./assets/js/windows/mainWindow.js");
+const AppProtocol = require("./assets/js/windows/appProtocol.js");
+
+// Register the custom `app://` scheme as privileged BEFORE app `ready`.
+// This gives the renderer a stable, secure origin (app://bundle) so a real
+// Content-Security-Policy can be enforced (file:// has an opaque origin and
+// broke a previous CSP attempt). See appProtocol.js for the full rationale.
+AppProtocol.registerPrivileged();
 
 let data
 let dev = process.env.NODE_ENV === 'dev';
@@ -26,6 +33,9 @@ if (dev) {
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(() => {
+    // Serve app://bundle/<path> from the renderer's static files. Must run
+    // after `ready` and before any window loads an app:// URL.
+    AppProtocol.registerHandler();
     if (dev) return MainWindow.createWindow()
     UpdateWindow.createWindow()
 });

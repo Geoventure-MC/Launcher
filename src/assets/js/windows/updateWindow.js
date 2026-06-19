@@ -39,7 +39,9 @@ function createWindow() {
     });
     Menu.setApplicationMenu(null);
     updateWindow.setMenuBarVisibility(false);
-    updateWindow.loadFile(path.join(`${app.getAppPath()}/src/index.html`));
+    // Load via the custom app:// scheme (stable secure origin for the CSP)
+    // instead of file:// (opaque origin). See assets/js/windows/appProtocol.js.
+    updateWindow.loadURL("app://bundle/index.html");
     updateWindow.once('ready-to-show', () => {
         if (updateWindow) {
             if (dev) updateWindow.webContents.openDevTools({ mode: 'detach' })

@@ -41,7 +41,10 @@ function createWindow() {
     });
     Menu.setApplicationMenu(null);
     mainWindow.setMenuBarVisibility(false);
-    mainWindow.loadFile(path.join(`${app.getAppPath()}/src/launcher.html`));
+    // Load via the custom app:// scheme (stable secure origin for the CSP)
+    // instead of file:// (opaque origin). The handler maps app://bundle/<path>
+    // to the renderer's static files. See assets/js/windows/appProtocol.js.
+    mainWindow.loadURL("app://bundle/launcher.html");
     mainWindow.once('ready-to-show', () => {
         if (mainWindow) {
             if (dev) mainWindow.webContents.openDevTools({ mode: 'detach' })
