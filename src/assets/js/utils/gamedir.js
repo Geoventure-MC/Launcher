@@ -63,4 +63,4 @@ function getGameDirectory(dataDirectory, config) {
     return path.join(base, 'instances', slug);
 }
 
-module.exports = { getGameDirectory, getBaseDirectory, isDefaultServer, slugify };
+export { getGameDirectory, getBaseDirectory, isDefaultServer, slugify };

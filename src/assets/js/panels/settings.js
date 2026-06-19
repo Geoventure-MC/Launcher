@@ -9,7 +9,7 @@
 
 import { database, changePanel, accountSelect, Slider, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
 import { isConsented, setConsent } from '../utils/telemetry.js';
-const { getGameDirectory } = require('../utils/gamedir.js');
+import { getGameDirectory } from '../utils/gamedir.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');

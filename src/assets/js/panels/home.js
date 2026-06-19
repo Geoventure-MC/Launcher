@@ -10,7 +10,7 @@
 import { logger, database, changePanel, t } from '../utils.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
-const { getGameDirectory } = require('../utils/gamedir.js');
+import { getGameDirectory } from '../utils/gamedir.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -448,7 +448,7 @@ class Home {
         info.innerHTML = html;
 
         if (hasBytes) {
-            ipcRenderer.send('main-window-progress', { progress, size });
+            ipcRenderer.send('main-window-progress', { DL: progress, totDL: size });
             progressBar.value = progress;
             progressBar.max = size;
         }
