@@ -2,7 +2,7 @@
 
 > Fichier de mémoire pour Claude Code. À placer à la racine du repo `panel`
 > (et idéalement une copie dans `installer` et `launcher`).
-> Dernière mise à jour : 2026-05-29.
+> Dernière mise à jour : 2026-06-18.
 
 ## 🎯 Vue d'ensemble
 
@@ -11,7 +11,7 @@ Trois dépôts qui **travaillent ensemble** :
 | Repo | Stack | Rôle |
 |------|-------|------|
 | `geoventure-mc/panel` | **Laravel 11 + PHP 8.2** (Blade, Bootstrap) | Panel d'admin web : crée les users, gère serveurs/mods/loader/whitelist/RPC/UI, **expose la config au launcher** via `/utils/*` et `/data` |
-| `geoventure-mc/launcher` | **Electron 37 + JS vanilla** | App de jeu. Lit la config du panel. `env: "panel"` (NE JAMAIS CHANGER). `settings: https://launcher.bmeouchi.fr/` |
+| `geoventure-mc/launcher` | **Electron 37 + JS vanilla** | App de jeu. Lit la config du panel. `env: "panel"` (NE JAMAIS CHANGER). `settings: https://launcher.geoventure.fr/` |
 | `geoventure-mc/installer` | **Vue 3 + TS + Vite + PHP** | Installe le panel sur le serveur web (télécharge `panel-*.zip` depuis `CentralCorp/centralpanel-v2`) |
 
 3 serveurs gérés : **Geoventure** (#4ade80), **Elandor** (#a78bfa), **Pokeland** (#fb923c). Forge 1.20.1-47.4.20.
@@ -21,8 +21,14 @@ Trois dépôts qui **travaillent ensemble** :
 Le launcher lit le panel via ces routes (définies dans `panel/routes/web.php`) :
 - `GET /utils/api`  → `api/ApiController@getOptions` : toute la config (maintenance, loader, serveur, RPC, UI, whitelist…)
 - `GET /utils/mods` → `api/ModController@getMods` : mods optionnels
-- `GET /utils/notifications` → `api/NotificationController@getNotifications` : **annonces in-app** (feature ajoutée, voir plus bas)
+- `GET /utils/notifications` → `api/NotificationController@getNotifications` : annonces in-app
+- `GET /utils/servers-status` → `api/ServerStatusController@getServersStatus` : statut en ligne (SLP, cache 30s)
+- `GET /utils/community-mods` → `api/CommunityModController@getCommunityMods` : mods communauté approuvés
+- `GET /utils/leaderboards` → `api/LeaderboardController@getLeaderboards` : classement joueurs
+- `GET /utils/factions` → `api/FactionController@getFactions` : liste des factions
+- `POST /utils/telemetry` → `api/TelemetryController@store` : télémétrie opt-in (CSRF exempté)
 - `GET /data` → `api/FileController@getFiles` : liste des fichiers du modpack (hash/size/url)
+- `GET /api-schema.json` → version du schéma API
 
 Le launcher construit l'URL via `settings_url` (= `pkg.settings` ou `localStorage.geoventure_server_url`) + le chemin. Réponses JSON `JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES`.
 
@@ -76,7 +82,7 @@ Correctifs livrés suite aux erreurs d'une session launcher live (502/404/double
 1. **Mode maintenance amélioré** — existe déjà (`options_security.maintenance` + `maintenance_message` exposés dans `/utils/api`). À enrichir : toggle rapide + le launcher bloque le lancement.
 2. **Dashboard stats** — graphiques connexions/joueurs/version launcher (via télémétrie installer).
 3. **Journal d'audit** — log des actions admin (migration + observer + vue).
-4. **`GET /utils/servers-status`** — le launcher l'appelle déjà (pills serveurs) mais l'endpoint n'existe pas encore côté panel → à créer (ping des 3 serveurs).
+4. ~~`GET /utils/servers-status`~~ — ✅ **Livré** (SLP Minecraft, cache 30s).
 
 ## 🧩 Conventions PANEL (Laravel) — à respecter
 

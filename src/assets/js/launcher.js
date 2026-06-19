@@ -17,6 +17,8 @@ import { getAzAuthUrl } from './utils/config.js';
 import Login from './panels/login.js';
 import Home from './panels/home.js';
 import Settings from './panels/settings.js';
+import Profile from './panels/profile.js';
+import Changelog from './panels/changelog.js';
 
 const settings_url = localStorage.getItem('geoventure_server_url') || (pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings);
 const urlPattern = /^(https?:\/\/)/;
@@ -37,7 +39,7 @@ class Launcher {
         this.applyAccentColor();
         this.news = await config.GetNews();
         this.database = await new database().init();
-        this.createPanels(Login, Home, Settings);
+        this.createPanels(Login, Home, Settings, Profile, Changelog);
         this.getAccounts();
         this.initDiscordRPC();
     }
@@ -128,7 +130,6 @@ class Launcher {
                 account = account.value;
                 if (account.meta.type === 'AZauth') {
                     const refresh = await AZAuth.verify(account);
-                    console.log(refresh);
                     console.log(`Initializing Mojang account ${account.name}...`);
 
                     if (refresh.error) {
@@ -169,7 +170,7 @@ class Launcher {
                 }
             }
 
-            if (!(await this.database.get('1234', 'accounts-selected')).value.selected) {
+            if (!(await this.database.get('1234', 'accounts-selected'))?.value?.selected) {
                 const uuid = (await this.database.getAll('accounts'))[0]?.value?.uuid;
                 if (uuid) {
                     this.database.update({ uuid: "1234", selected: uuid }, 'accounts-selected');
@@ -204,8 +205,13 @@ class Launcher {
         const loadPromises = [];
         loadPromises.push(this.initPreviewSkin());
 
-        const uuid = (await this.database.get('1234', 'accounts-selected')).value;
-        const account = (await this.database.get(uuid.selected, 'accounts')).value;
+        const uuid = (await this.database.get('1234', 'accounts-selected'))?.value;
+        const account = uuid?.selected ? (await this.database.get(uuid.selected, 'accounts'))?.value : null;
+        if (!account) {
+            changePanel("login");
+            this.hidePreloader();
+            return;
+        }
 
         this.updateRole(account);
         this.updateMoney(account);

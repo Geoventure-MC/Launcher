@@ -125,8 +125,11 @@ class Splash {
 
 
     async maintenanceCheck() {
-        config.GetConfig().then(res => {
-            if (res.maintenance) return this.shutdown(res.maintenance_message);
+        // En maintenance, on n'arrête plus le launcher : on l'ouvre normalement
+        // et le panneau d'accueil affiche le bandeau + bloque le bouton Jouer
+        // (voir initMaintenance() dans panels/home.js). Seule une vraie erreur
+        // de connexion au panel empêche le démarrage.
+        config.GetConfig().then(() => {
             this.startLauncher();
         }).catch(e => {
             console.error(e);

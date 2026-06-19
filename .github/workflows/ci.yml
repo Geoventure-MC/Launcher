@@ -2,17 +2,20 @@ name: Launcher Build & Release
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  version-bump:
+  prepare:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     outputs:
-      sha: ${{ steps.push.outputs.sha }}
-      version: ${{ steps.push.outputs.version }}
+      release: ${{ steps.decide.outputs.release }}
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.bump.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,22 +29,60 @@ jobs:
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump patch version
-        id: push
+      - name: Decide release
+        id: decide
         run: |
-          npm version patch --no-git-tag-version
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          git add package.json
-          git commit -m "chore: bump version to v$NEW_VERSION [skip ci]"
-          git push origin master
-          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "bump=patch"   >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch -> release (patch)"; exit 0
+          fi
+          LAST_TAG=$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then RANGE="${LAST_TAG}..HEAD"; else RANGE=""; fi
+          LOG=$(git log $RANGE --no-merges --pretty=format:'%s' | grep -v '\[skip ci\]' || true)
+          if [ -z "$(printf '%s' "$LOG" | tr -d '[:space:]')" ]; then
+            echo "No new commits -> skip"; echo "release=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          NONTRIVIAL=0; BUMP="patch"
+          while IFS= read -r MSG; do
+            [ -z "$MSG" ] && continue
+            case "$MSG" in
+              docs:*|chore:*|style:*|ci:*|test:*|refactor:*|build:*) continue ;;
+              "📝"*|"📚"*|"🔄"*|"✅"*|"🔖"*|"💚"*|"👷"*|"📄"*) continue ;;
+            esac
+            NONTRIVIAL=1
+            if printf '%s' "$MSG" | grep -qiE 'breaking change|!:'; then BUMP="major";
+            elif printf '%s' "$MSG" | grep -qiE '^feat(\(.+\))?:|^feature|✨|🎉|🚀'; then
+              [ "$BUMP" != "major" ] && BUMP="minor"; fi
+          done <<EOF
+          $LOG
+          EOF
+          if [ "$NONTRIVIAL" = "0" ]; then
+            echo "Only trivial commits -> skip release"; echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"; echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+            echo "Release -> bump=$BUMP"
+          fi
+
+      - name: Bump version
+        id: bump
+        if: steps.decide.outputs.release == 'true'
+        run: |
+          BUMP="${{ steps.decide.outputs.bump }}"
+          NEW_VERSION=$(npm version "$BUMP" --no-git-tag-version)
+          NEW_VERSION="${NEW_VERSION#v}"
+          git add package.json package-lock.json 2>/dev/null || git add package.json
+          git commit -m "chore: release v$NEW_VERSION [skip ci]"
+          git push origin HEAD:master
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Bumped to v$NEW_VERSION"
 
   build-launcher:
-    needs: version-bump
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -56,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.version-bump.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -91,24 +132,25 @@ jobs:
         shell: bash
 
   create-release-notes:
-    needs: [version-bump, build-launcher]
+    needs: [prepare, build-launcher]
+    if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.version-bump.outputs.version }}
-          name: "Conflictura Launcher v${{ needs.version-bump.outputs.version }}"
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: "Conflictura Launcher v${{ needs.prepare.outputs.version }}"
           body: |
-            ## Conflictura Launcher v${{ needs.version-bump.outputs.version }}
+            ## Conflictura Launcher v${{ needs.prepare.outputs.version }}
 
             ### Téléchargement
 
             | Plateforme | Fichier |
             |---|---|
-            | **Windows** | `Conflictura Launcher Setup ${{ needs.version-bump.outputs.version }}.exe` |
-            | **macOS Apple Silicon** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}-arm64.dmg` |
-            | **macOS Intel** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}.dmg` |
-            | **Linux** | `Conflictura Launcher-${{ needs.version-bump.outputs.version }}.AppImage` |
+            | **Windows** | `Conflictura Launcher Setup ${{ needs.prepare.outputs.version }}.exe` |
+            | **macOS Apple Silicon** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}-arm64.dmg` |
+            | **macOS Intel** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}.dmg` |
+            | **Linux** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}.AppImage` |
 
             ### Mise à jour automatique
             Si tu as déjà le launcher installé, il se met à jour automatiquement au prochain démarrage — pas besoin de réinstaller.

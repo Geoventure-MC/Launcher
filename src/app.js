@@ -5,7 +5,7 @@
  *
  * Edited by CentralCorp Team
  */
-const { app, ipcMain, nativeTheme } = require('electron');
+const { app, ipcMain, nativeTheme, dialog } = require('electron');
 const { Microsoft } = require('minecraft-java-core-azbetter');
 const { autoUpdater } = require('electron-updater')
 
@@ -59,6 +59,17 @@ ipcMain.handle('is-dark-theme', (_, theme) => {
 
 ipcMain.handle('Microsoft-window', async (event, client_id) => {
     return await new Microsoft(client_id).getAuth();
+})
+
+// Save-dialog for the in-app game console "Export" button. Returns the chosen
+// file path (or null if cancelled); the renderer writes the file itself.
+ipcMain.handle('save-logs-dialog', async () => {
+    const win = MainWindow.getWindow();
+    const res = await dialog.showSaveDialog(win, {
+        defaultPath: `minecraft-logs-${Date.now()}.txt`,
+        filters: [{ name: 'Text', extensions: ['txt'] }],
+    });
+    return res && !res.canceled ? res.filePath : null;
 })
 
 app.on('window-all-closed', () => {

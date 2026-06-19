@@ -8,6 +8,8 @@
 'use strict';
 
 import { database, changePanel, accountSelect, Slider, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
+import { isConsented, setConsent } from '../utils/telemetry.js';
+import { getGameDirectory } from '../utils/gamedir.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -20,6 +22,11 @@ const settings_url = localStorage.getItem('geoventure_server_url') || (pkg.user 
 
 class Settings {
     static id = "settings";
+
+    // Per-server game directory (default server keeps its legacy path).
+    gameDir() {
+        return getGameDirectory(dataDirectory, this.config);
+    }
 
     async init(config) {
         this.config = config;
@@ -318,8 +325,9 @@ class Settings {
     }
 
     async updateModsConfig() {
-        const modsDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'mods');
-        const launcherConfigDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'launcher_config');
+        const gameDir = this.gameDir();
+        const modsDir = path.join(gameDir, 'mods');
+        const launcherConfigDir = path.join(gameDir, 'launcher_config');
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
 
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
@@ -361,8 +369,9 @@ class Settings {
     }
 
     async initOptionalMods() {
-        const modsDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'mods');
-        const launcherConfigDir = path.join(`${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`, 'launcher_config');
+        const gameDir = this.gameDir();
+        const modsDir = path.join(gameDir, 'mods');
+        const launcherConfigDir = path.join(gameDir, 'launcher_config');
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
         const modsListElement = document.getElementById('mods-list');
 
@@ -556,7 +565,6 @@ class Settings {
     }
 
     async initPreviewSkin() {
-        console.log('initPreviewSkin called');
         const azauth = this.getAzAuthUrl();
         const uuidRec = await this.database.get('1234', 'accounts-selected');
         if (!uuidRec?.value?.selected) return;
@@ -691,6 +699,11 @@ class Settings {
         document.getElementById('mods-info').innerHTML = t('mods_detailed_info');
         document.getElementById('skin-title').textContent = t('skin');
 
+        const privacyTitle = document.getElementById('privacy-title');
+        if (privacyTitle) privacyTitle.textContent = t('privacy_title') || 'Confidentialité';
+        const telemetryLabel = document.getElementById('telemetry-consent-label');
+        if (telemetryLabel) telemetryLabel.textContent = t('telemetry_consent') || "Partager des statistiques anonymes d'utilisation";
+
         const dropzoneText = document.getElementById('dropzone-text');
         if (dropzoneText) dropzoneText.textContent = t('dropzone_drag');
         const dropzoneSubtext = document.querySelector('.dropzone-subtext');
@@ -744,15 +757,24 @@ class Settings {
     initAdvanced() {
         const openFolderBtn = document.getElementById('open-folder-btn');
         if (openFolderBtn) {
-            const gameDir = path.join(
-                dataDirectory,
-                process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`
-            );
+            const gameDir = this.gameDir();
             openFolderBtn.addEventListener('click', () => {
+                // Ensure the active server's directory exists before opening it.
+                try { if (!fs.existsSync(gameDir)) fs.mkdirSync(gameDir, { recursive: true }); } catch (e) { /* non-blocking */ }
                 shell.openPath(gameDir);
             });
         }
         this.initResolution();
+        this.initTelemetryConsent();
+    }
+
+    initTelemetryConsent() {
+        const checkbox = document.getElementById('telemetry-consent');
+        if (!checkbox) return;
+        checkbox.checked = isConsented();
+        checkbox.addEventListener('change', () => {
+            setConsent(checkbox.checked);
+        });
     }
 
     async initCommunityMods() {
@@ -767,7 +789,8 @@ class Settings {
         }
 
         try {
-            const response = await fetch(`${baseUrl}api/centralcorp/community-mods`);
+            let response = await fetch(`${baseUrl}utils/community-mods`);
+            if (!response.ok) response = await fetch(`${baseUrl}api/centralcorp/community-mods`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const mods = await response.json();
 
@@ -776,11 +799,7 @@ class Settings {
                 return;
             }
 
-            const modsDir = path.join(
-                dataDirectory,
-                process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`,
-                'mods'
-            );
+            const modsDir = path.join(this.gameDir(), 'mods');
 
             listEl.innerHTML = '';
 

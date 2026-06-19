@@ -10,6 +10,7 @@
 import { logger, database, changePanel, t } from '../utils.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
+import { getGameDirectory } from '../utils/gamedir.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -29,6 +30,37 @@ const CHEAT_PATTERNS = [
 
 let sessionStart = Date.now();
 
+// Module-level HTML escaper (reused by news/advert/video rendering).
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Validate a value is a safe http(s) URL; returns the URL or null.
+function safeHttpUrl(url) {
+    try {
+        const u = new URL(String(url));
+        return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : null;
+    } catch {
+        return null;
+    }
+}
+
+// Strip dangerous constructs from RSS/panel-provided HTML content.
+function sanitizeHtml(html) {
+    return String(html)
+        .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
+        .replace(/<\s*script[^>]*>/gi, '')
+        .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+        .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+        .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+        .replace(/javascript:/gi, '');
+}
+
 class Home {
     static id = "home";
 
@@ -38,6 +70,7 @@ class Home {
         this.news = await news;
         this.currentFile = '';
         this.currentSpeed = 0;
+        this._resetProgressTracking();
         sessionStart = Date.now();
 
         this.setStaticTexts();
@@ -48,6 +81,7 @@ class Home {
         this.initVideo();
         this.initAdvert();
         this.initNotifications();
+        this.initMaintenance();
         this.verifyModsBeforeLaunch();
         this.initServerSelector();
         this.initKeyboardShortcuts();
@@ -88,18 +122,21 @@ class Home {
     createNewsBlock(container, title, content, author = '', date = {}, image = null) {
         const blockNews = document.createElement('div');
         blockNews.classList.add('news-block', 'opacity-1');
+        const safeImage = image ? safeHttpUrl(image) : null;
+        const safeDay = date && date.day ? escapeHtml(date.day) : '';
+        const safeMonth = date && date.month ? escapeHtml(date.month) : '';
         blockNews.innerHTML = `
             <div class="news-header">
                 <div class="header-text">
-                    <div class="title">${title}</div>
+                    <div class="title">${escapeHtml(title)}</div>
                 </div>
-                ${date.day ? `<div class="date"><div class="day">${date.day}</div><div class="month">${date.month}</div></div>` : ''}
+                ${date && date.day ? `<div class="date"><div class="day">${safeDay}</div><div class="month">${safeMonth}</div></div>` : ''}
             </div>
-            ${image ? `<div class="news-image" style="background-image: url('${image}');"></div>` : ''}
+            ${safeImage ? `<div class="news-image" style="background-image: url('${escapeHtml(safeImage)}');"></div>` : ''}
             <div class="news-content">
                 <div class="bbWrapper">
-                    <p>${content}</p>
-                    ${author ? `<p class="news-author"><span>${author}</span></p>` : ''}
+                    <p>${sanitizeHtml(content)}</p>
+                    ${author ? `<p class="news-author"><span>${escapeHtml(author)}</span></p>` : ''}
                 </div>
             </div>`;
         container.appendChild(blockNews);
@@ -140,7 +177,64 @@ class Home {
         }
     }
 
+    // Maintenance mode: when the panel reports config.maintenance === true,
+    // block the Play button and show the maintenance message prominently.
+    initMaintenance() {
+        const isMaintenance = this.config.maintenance === true;
+        const playBtn = document.querySelector('.play-btn');
+
+        if (!isMaintenance) {
+            if (playBtn) {
+                playBtn.disabled = false;
+                playBtn.style.pointerEvents = '';
+                playBtn.style.opacity = '';
+                playBtn.style.background = '';
+            }
+            return;
+        }
+
+        if (playBtn) {
+            playBtn.disabled = true;
+            playBtn.style.pointerEvents = 'none';
+            playBtn.style.opacity = '0.6';
+            playBtn.style.background = '#b45309';
+            playBtn.title = t('maintenance_active') || 'Maintenance en cours';
+        }
+
+        this.showMaintenanceBanner();
+    }
+
+    showMaintenanceBanner() {
+        const container = document.getElementById('notifications-banner');
+        if (!container) return;
+
+        const msg = this.config.maintenance_message
+            ? sanitizeHtml(String(this.config.maintenance_message))
+            : escapeHtml(t('maintenance_active') || 'Maintenance en cours');
+
+        const el = document.createElement('div');
+        el.className = 'notification-item notification-maintenance';
+        el.innerHTML = `
+            <span class="notif-icon">🔧</span>
+            <span class="notif-message"><strong>${escapeHtml(t('maintenance_active') || 'Maintenance en cours')}</strong> — ${msg}</span>
+        `;
+        // Prepend so the maintenance notice is always shown first.
+        container.insertBefore(el, container.firstChild);
+        container.style.display = 'block';
+    }
+
     async _doLaunch() {
+        // Defense in depth: refuse to launch while the server is in maintenance.
+        if (this.config.maintenance === true) {
+            const info = document.querySelector('.text-download');
+            if (info) {
+                info.style.display = 'block';
+                info.innerHTML = `<span class="red">${escapeHtml(t('maintenance_blocked') || 'Lancement bloqué : maintenance en cours.')}</span>`;
+            }
+            this.showMaintenanceBanner();
+            return;
+        }
+
         const cheats = await this.checkForCheatMods();
         if (cheats.length > 0) {
             const proceed = await this.showCheatModal(cheats);
@@ -180,7 +274,7 @@ class Home {
             url: urlpkg,
             authenticator: account,
             timeout: 10000,
-            path: `${dataDirectory}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}`,
+            path: this.gameDir(),
             version: this.config.game_version,
             detached: launcherSettings.launcher.close === 'close-all' ? false : true,
             downloadFileMultiple: 30,
@@ -210,41 +304,170 @@ class Home {
         return pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/files` : `${baseUrl}data/`;
     }
 
+    // Per-server game directory (the default server keeps its legacy path).
+    gameDir() {
+        return getGameDirectory(dataDirectory, this.config);
+    }
+
     setupLaunchListeners(launch, info, progressBar, playBtn, launcherSettings) {
-        launch.on('extract', extract => console.log(extract));
+        this._resetProgressTracking();
+        launch.on('extract', extract => {
+            // The lib emits the entry name being extracted (when available).
+            if (extract && typeof extract === 'string') this.currentFile = extract;
+            this._setPhase('extract');
+            console.log(extract);
+        });
         launch.on('progress', (progress, size, file) => {
             if (file) this.currentFile = file;
+            this._setPhase('download');
             this.updateProgressBar(progressBar, info, progress, size, t('download'));
         });
         launch.on('check', (progress, size, file) => {
             if (file) this.currentFile = file;
+            this._setPhase('check');
             this.updateProgressBar(progressBar, info, progress, size, t('verification'));
         });
-        launch.on('estimated', time => console.log(this.formatTime(time)));
-        launch.on('speed', speed => {
-            this.currentSpeed = speed;
-            console.log(`${(speed / 1067008).toFixed(2)} Mb/s`);
+        // Lib-provided ETA — used only as a fallback when we can't compute one.
+        launch.on('estimated', time => {
+            const secs = Number(time);
+            this.libEta = Number.isFinite(secs) && secs >= 0 ? secs : null;
         });
-        launch.on('patch', patch => info.innerHTML = t('patch_in_progress'));
+        // Lib-provided speed — used as a fallback when our byte-delta estimate
+        // isn't available yet (e.g. first progress event).
+        launch.on('speed', speed => {
+            const s = Number(speed);
+            this.libSpeed = Number.isFinite(s) && s >= 0 ? s : 0;
+        });
+        launch.on('patch', patch => {
+            this._setPhase('patch');
+            info.innerHTML = t('patch_in_progress');
+        });
         launch.on('data', e => this.handleLaunchData(e, info, progressBar, playBtn, launcherSettings));
         launch.on('close', code => this.handleLaunchClose(code, info, progressBar, playBtn, launcherSettings));
-        launch.on('error', err => console.log(err));
+        launch.on('error', err => {
+            this.appendLog(err && err.error ? err.error : String(err));
+            const logToggle = document.getElementById('log-toggle-btn');
+            if (logToggle) logToggle.style.display = '';
+            console.log(err);
+        });
+    }
+
+    // Reset the per-launch byte/speed tracking state.
+    _resetProgressTracking() {
+        this.currentFile = '';
+        this.currentSpeed = 0;   // smoothed bytes/sec (computed from deltas)
+        this.libSpeed = 0;       // bytes/sec reported by the lib (fallback)
+        this.libEta = null;      // seconds reported by the lib (fallback)
+        this.currentPhase = '';
+        this._lastBytes = null;
+        this._lastTime = null;
+    }
+
+    // Track the current phase; resets the speed estimator on phase change so the
+    // smoothed rate doesn't carry over from a different operation.
+    _setPhase(phase) {
+        if (this.currentPhase !== phase) {
+            this.currentPhase = phase;
+            this._lastBytes = null;
+            this._lastTime = null;
+            this.currentSpeed = 0;
+        }
+    }
+
+    // Compute a smoothed download speed (bytes/sec) from byte deltas between
+    // progress events. Returns 0 until enough data is available.
+    _computeSpeed(progress) {
+        const now = Date.now();
+        if (typeof progress !== 'number' || !Number.isFinite(progress)) return this.currentSpeed;
+
+        if (this._lastTime != null && this._lastBytes != null) {
+            const dt = (now - this._lastTime) / 1000;
+            const db = progress - this._lastBytes;
+            // Ignore zero/negative time slices and counter resets (db < 0).
+            if (dt > 0.05 && db >= 0) {
+                const instant = db / dt;
+                // Exponential smoothing to avoid jumpy readings.
+                this.currentSpeed = this.currentSpeed > 0
+                    ? this.currentSpeed * 0.7 + instant * 0.3
+                    : instant;
+                this._lastTime = now;
+                this._lastBytes = progress;
+            }
+        } else {
+            this._lastTime = now;
+            this._lastBytes = progress;
+        }
+        return this.currentSpeed;
+    }
+
+    _phaseLabel(phase, fallback) {
+        const keys = {
+            download: 'phase_download',
+            check: 'phase_verify',
+            extract: 'phase_extract',
+            patch: 'phase_patch',
+        };
+        const key = keys[phase];
+        return (key && t(key) !== key) ? t(key) : fallback;
+    }
+
+    formatBytes(bytes) {
+        if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '';
+        if (bytes >= 1073741824) return `${(bytes / 1073741824).toFixed(2)} ${t('unit_gb') || 'Go'}`;
+        return `${(bytes / 1048576).toFixed(1)} ${t('unit_mb') || 'Mo'}`;
     }
 
     updateProgressBar(progressBar, info, progress, size, text) {
         progressBar.style.display = "block";
-        const pct = ((progress / size) * 100).toFixed(0);
-        const speedMb = this.currentSpeed > 0 ? `${(this.currentSpeed / 1067008).toFixed(1)} MB/s` : '';
-        const fileName = this.currentFile ? path.basename(this.currentFile) : '';
+        const hasBytes = typeof progress === 'number' && typeof size === 'number' && size > 0;
+        const pct = hasBytes ? ((progress / size) * 100).toFixed(0) : '0';
 
-        let html = `${text} ${pct}%`;
-        if (fileName) html += `<div class="progress-file" title="${fileName}">${fileName}</div>`;
-        if (speedMb) html += `<div class="progress-speed">${speedMb}</div>`;
+        // Prefer our byte-delta estimate; fall back to the lib's speed event.
+        let bps = this.currentPhase === 'download' ? this._computeSpeed(progress) : 0;
+        if (!(bps > 0) && this.libSpeed > 0) bps = this.libSpeed;
+        const speedStr = bps > 0 ? `${(bps / 1048576).toFixed(1)} ${t('unit_mb') || 'Mo'}/s` : '';
+
+        // ETA: prefer computed (remaining bytes / speed), fall back to lib value.
+        let etaStr = '';
+        if (hasBytes && bps > 0) {
+            const remaining = Math.max(0, size - progress);
+            etaStr = this._formatEta(remaining / bps);
+        } else if (this.libEta != null) {
+            etaStr = this._formatEta(this.libEta);
+        }
+
+        const phaseLabel = this._phaseLabel(this.currentPhase, text);
+        const fileName = this.currentFile ? path.basename(this.currentFile) : '';
+        const sizeStr = hasBytes ? `${this.formatBytes(progress)} / ${this.formatBytes(size)}` : '';
+
+        // Header: "Téléchargement 42%"
+        let html = `<div class="progress-head">${escapeHtml(phaseLabel)} ${pct}%</div>`;
+        if (fileName) html += `<div class="progress-file" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</div>`;
+        const meta = [sizeStr, speedStr, etaStr ? `${etaStr} ${t('remaining') || 'restant'}` : ''].filter(Boolean);
+        if (meta.length) html += `<div class="progress-meta">${escapeHtml(meta.join(' · '))}</div>`;
         info.innerHTML = html;
 
-        ipcRenderer.send('main-window-progress', { progress, size });
-        progressBar.value = progress;
-        progressBar.max = size;
+        if (hasBytes) {
+            ipcRenderer.send('main-window-progress', { DL: progress, totDL: size });
+            progressBar.value = progress;
+            progressBar.max = size;
+        }
+    }
+
+    _formatEta(seconds) {
+        if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) return '';
+        const s = Math.round(seconds);
+        if (s >= 3600) {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            return `${h}h${String(m).padStart(2, '0')}`;
+        }
+        if (s >= 60) {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${m}m${String(sec).padStart(2, '0')}s`;
+        }
+        return `${s}s`;
     }
 
     formatTime(time) {
@@ -286,11 +509,46 @@ class Home {
     }
 
     async initStatusServer() {
-        const nameServer = document.querySelector('.server-text .name');
+        // Prefer the panel's /utils/servers-status (it already SLP-pings every
+        // server server-side, incl. the default) to avoid double-pinging the
+        // default server. Fall back to a direct SLP ping if it's unavailable.
+        const statuses = await this.fetchServersStatus();
+        if (statuses) {
+            this.refreshAllServersStatus(statuses);
+            const def = statuses.find(s => s.is_default) || statuses[0];
+            if (def) {
+                this.renderDefaultServerStatus({
+                    online: !!def.online,
+                    nameServer: def.name,
+                    ms: def.latency,
+                    players: def.players,
+                });
+                return;
+            }
+        }
+
+        await this.pingDefaultServerDirect();
+    }
+
+    renderDefaultServerStatus({ online, nameServer, ms, players }) {
+        const nameEl = document.querySelector('.server-text .name');
         const serverMs = document.querySelector('.server-text .desc');
         const playersConnected = document.querySelector('.etat-text .text');
-        const online = document.querySelector(".etat-text .online");
+        const onlineEl = document.querySelector(".etat-text .online");
 
+        if (online) {
+            nameEl.textContent = nameServer || this.config.status?.nameServer || '';
+            const msText = ms != null ? ` - ${ms}${t('server_ping')}` : '';
+            serverMs.innerHTML = `<span class="green">${t('server_online')}</span>${msText}`;
+            onlineEl.classList.toggle("off");
+            if (players != null) playersConnected.textContent = players;
+        } else {
+            nameEl.textContent = t('server_unavailable');
+            serverMs.innerHTML = `<span class="red">${t('server_closed')}</span>`;
+        }
+    }
+
+    async pingDefaultServerDirect() {
         const status = this.config.status || {};
         let ip = status.ip;
         let port = status.port;
@@ -316,41 +574,48 @@ class Home {
         try {
             const serverPing = await new Status(ip, port).getStatus();
             if (!serverPing.error) {
-                nameServer.textContent = this.config.status.nameServer;
-                serverMs.innerHTML = `<span class="green">${t('server_online')}</span> - ${serverPing.ms}${t('server_ping')}`;
-                online.classList.toggle("off");
-                playersConnected.textContent = serverPing.playersConnect;
-
-                // Also refresh all-servers status for the selector pills
-                this.refreshAllServersStatus(serverPing);
+                this.renderDefaultServerStatus({
+                    online: true,
+                    nameServer: this.config.status.nameServer,
+                    ms: serverPing.ms,
+                    players: serverPing.playersConnect,
+                });
             } else {
-                nameServer.textContent = t('server_unavailable');
-                serverMs.innerHTML = `<span class="red">${t('server_closed')}</span>`;
+                this.renderDefaultServerStatus({ online: false });
             }
         } catch (e) {
-            nameServer.textContent = t('server_unavailable');
-            serverMs.innerHTML = `<span class="red">${t('server_closed')}</span>`;
+            this.renderDefaultServerStatus({ online: false });
         }
     }
 
-    async refreshAllServersStatus(currentServerPing) {
-        const currentUrl = localStorage.getItem('geoventure_server_url') || settings_url;
-        const activePill = document.querySelector('.server-pill.active');
-        if (activePill && currentServerPing && !currentServerPing.error) {
-            const count = currentServerPing.playersConnect ?? 0;
-            activePill.title = `${activePill.title.split('—')[0].trim()} — ${count} ${t('players_online') || 'joueurs'}`;
-        }
-
+    async fetchServersStatus() {
         try {
             const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
             const res = await fetch(`${base}utils/servers-status`, {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(5000),
             });
-            if (!res.ok) return;
+            if (!res.ok) return null;
             const statuses = await res.json();
-            if (!Array.isArray(statuses)) return;
+            return Array.isArray(statuses) ? statuses : null;
+        } catch {
+            return null;
+        }
+    }
 
+    refreshAllServersStatus(statuses) {
+        if (!Array.isArray(statuses)) return;
+
+        const activePill = document.querySelector('.server-pill.active');
+        if (activePill) {
+            const activeId = activePill.dataset.serverId;
+            const active = statuses.find(s => String(s.id) === String(activeId));
+            if (active && active.online && active.players != null) {
+                activePill.title = `${activePill.title.split('—')[0].trim()} — ${active.players} ${t('players_online') || 'joueurs'}`;
+            }
+        }
+
+        try {
             for (const status of statuses) {
                 const pill = document.querySelector(`.server-pill[data-server-id="${status.id}"]`);
                 if (!pill) continue;
@@ -444,6 +709,13 @@ class Home {
         const videoType = this.config.video_type;
         let youtubeEmbedUrl;
 
+        // Only accept a valid 11-char YouTube video id to avoid src injection.
+        if (!/^[A-Za-z0-9_-]{11}$/.test(String(youtubeVideoId || ''))) {
+            console.error('Invalid YouTube video id specified in the configuration.');
+            videoContainer.style.display = 'none';
+            return;
+        }
+
         if (videoType === 'short') {
             youtubeEmbedUrl = `https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&playsinline=1`;
         } else if (videoType === 'video') {
@@ -464,7 +736,7 @@ class Home {
         if (thumbnailImg && playButton) {
             thumbnailImg.src = youtubeThumbnailUrl;
             videoThumbnail.addEventListener('click', () => {
-                videoThumbnail.innerHTML = `<iframe width="500" height="290" src="${youtubeEmbedUrl}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
+                videoThumbnail.innerHTML = `<iframe width="500" height="290" src="${youtubeEmbedUrl}" title="${escapeHtml(t('community_video') || 'Community video')}" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
             });
         }
     }
@@ -476,7 +748,7 @@ class Home {
             const firstParagraph = message.split('</p>')[0] + '</p>';
             const scrollingText = document.createElement('div');
             scrollingText.classList.add('scrolling-text');
-            scrollingText.innerHTML = `${firstParagraph}`;
+            scrollingText.innerHTML = sanitizeHtml(firstParagraph);
             advertBanner.innerHTML = '';
             advertBanner.appendChild(scrollingText);
             scrollingText.classList.toggle('no-scroll', !this.config.alert_scroll);
@@ -490,6 +762,14 @@ class Home {
         document.querySelector('.settings-btn').addEventListener('click', () => {
             changePanel('settings');
         });
+        document.querySelector('.profile-btn')?.addEventListener('click', () => {
+            changePanel('profile');
+        });
+        const changelogBtn = document.querySelector('.changelog-btn');
+        if (changelogBtn) {
+            changelogBtn.title = t('changelog_title') || 'Nouveautés';
+            changelogBtn.addEventListener('click', () => changePanel('changelog'));
+        }
     }
 
     async getDate(e) {
@@ -505,8 +785,9 @@ class Home {
     }
 
     async verifyModsBeforeLaunch() {
-        const modsDir = path.join(dataDirectory, process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`, 'mods');
-        const launcherConfigDir = path.join(dataDirectory, process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`, 'launcher_config');
+        const gameDir = this.gameDir();
+        const modsDir = path.join(gameDir, 'mods');
+        const launcherConfigDir = path.join(gameDir, 'launcher_config');
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
 
         if (!fs.existsSync(modsDir) || !fs.existsSync(modsConfigFile)) {
@@ -626,11 +907,7 @@ class Home {
 
     async checkForCheatMods() {
         try {
-            const modsDir = path.join(
-                dataDirectory,
-                process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`,
-                'mods'
-            );
+            const modsDir = path.join(this.gameDir(), 'mods');
 
             if (!fs.existsSync(modsDir)) return [];
 
@@ -684,11 +961,7 @@ class Home {
 
             removeBtn.onclick = () => {
                 try {
-                    const modsDir = path.join(
-                        dataDirectory,
-                        process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`,
-                        'mods'
-                    );
+                    const modsDir = path.join(this.gameDir(), 'mods');
                     cheats.forEach(file => {
                         const filePath = path.join(modsDir, file);
                         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -712,6 +985,21 @@ class Home {
         const logConsole = document.getElementById('log-console');
         const closeBtn = document.getElementById('log-close-btn');
         const clearBtn = document.getElementById('log-clear-btn');
+        const copyBtn = document.getElementById('log-copy-btn');
+        const exportBtn = document.getElementById('log-export-btn');
+        const autoBtn = document.getElementById('log-autoscroll-btn');
+
+        // In-memory ring buffer of raw log lines (capped to avoid memory bloat).
+        this.logBuffer = [];
+        this.logAutoScroll = true;
+
+        // Static labels (i18n).
+        const title = document.getElementById('log-title');
+        if (title) title.textContent = t('logs_console') || 'Console Minecraft';
+        if (clearBtn) clearBtn.textContent = t('logs_clear') || 'Effacer';
+        if (copyBtn) copyBtn.textContent = t('logs_copy') || 'Copier';
+        if (exportBtn) exportBtn.textContent = t('logs_export') || 'Exporter';
+        if (autoBtn) autoBtn.textContent = t('logs_autoscroll') || 'Auto';
 
         if (!logConsole) return;
 
@@ -729,10 +1017,61 @@ class Home {
 
         if (clearBtn) {
             clearBtn.addEventListener('click', () => {
+                this.logBuffer = [];
                 const body = document.getElementById('log-body');
                 if (body) body.innerHTML = '';
             });
         }
+
+        if (autoBtn) {
+            autoBtn.addEventListener('click', () => {
+                this.logAutoScroll = !this.logAutoScroll;
+                autoBtn.classList.toggle('log-btn-active', this.logAutoScroll);
+                if (this.logAutoScroll) {
+                    const body = document.getElementById('log-body');
+                    if (body) body.scrollTop = body.scrollHeight;
+                }
+            });
+        }
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                try {
+                    const { clipboard } = require('electron');
+                    clipboard.writeText(this.logBuffer.join('\n'));
+                    copyBtn.textContent = t('logs_copied') || 'Copié !';
+                    setTimeout(() => { copyBtn.textContent = t('logs_copy') || 'Copier'; }, 1500);
+                } catch (err) {
+                    console.error('Copy logs failed:', err);
+                }
+            });
+        }
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', async () => {
+                try {
+                    // The save dialog is shown by the main process (no remote module).
+                    const savePath = await ipcRenderer.invoke('save-logs-dialog');
+                    if (savePath) fs.writeFileSync(savePath, this.logBuffer.join('\n'), 'utf8');
+                } catch (err) {
+                    console.error('Export logs failed:', err);
+                }
+            });
+        }
+    }
+
+    initOfflineBadge() {
+        const badge = document.getElementById('offline-badge');
+        if (!badge) return;
+
+        const update = () => {
+            const online = navigator.onLine;
+            badge.style.display = online ? 'none' : 'block';
+        };
+
+        update();
+        window.addEventListener('online', update);
+        window.addEventListener('offline', update);
     }
 
     initOfflineBadge() {
@@ -753,21 +1092,43 @@ class Home {
         const body = document.getElementById('log-body');
         if (!body) return;
 
-        const line = document.createElement('div');
-        line.classList.add('log-line');
+        // A single emit may carry several physical lines; split them so the
+        // buffer cap and colouring apply per line.
+        const lines = String(text).replace(/\r/g, '').split('\n').filter(l => l.length > 0);
+        if (!lines.length) return;
 
-        const textLower = text.toLowerCase();
-        if (textLower.includes('error') || textLower.includes('exception') || textLower.includes('fatal')) {
-            line.classList.add('log-error');
-        } else if (textLower.includes('warn')) {
-            line.classList.add('log-warn');
-        } else {
-            line.classList.add('log-info');
+        if (!Array.isArray(this.logBuffer)) this.logBuffer = [];
+        const MAX_LINES = 2000;
+
+        for (const text of lines) {
+            this.logBuffer.push(text);
+
+            const line = document.createElement('div');
+            line.classList.add('log-line');
+
+            const textLower = text.toLowerCase();
+            if (textLower.includes('error') || textLower.includes('exception') || textLower.includes('fatal')) {
+                line.classList.add('log-error');
+            } else if (textLower.includes('warn')) {
+                line.classList.add('log-warn');
+            } else {
+                line.classList.add('log-info');
+            }
+
+            // textContent (no innerHTML) — log lines are never interpreted as HTML.
+            line.textContent = text;
+            body.appendChild(line);
         }
 
-        line.textContent = text;
-        body.appendChild(line);
-        body.scrollTop = body.scrollHeight;
+        // Cap both the in-memory buffer and the DOM node count.
+        if (this.logBuffer.length > MAX_LINES) {
+            this.logBuffer.splice(0, this.logBuffer.length - MAX_LINES);
+        }
+        while (body.childElementCount > MAX_LINES) {
+            body.removeChild(body.firstChild);
+        }
+
+        if (this.logAutoScroll !== false) body.scrollTop = body.scrollHeight;
     }
 }
 
