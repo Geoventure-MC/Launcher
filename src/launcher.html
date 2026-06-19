@@ -1,6 +1,10 @@
 <html>
     <head>
         <meta charset="UTF-8">
+        <!-- CSP fallback (the authoritative copy is the app:// response header,
+             see assets/js/windows/appProtocol.js). Now enforceable because the
+             page is served from the stable app://bundle origin, not file://. -->
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self' app:; script-src 'self' app:; style-src 'self' 'unsafe-inline' app:; img-src 'self' app: https: data: blob:; font-src 'self' app: data:; media-src 'self' app: https: blob:; frame-src https://www.youtube.com https://www.youtube-nocookie.com https:; connect-src *">
         <link rel="stylesheet" href="assets/css/launcher.css">
     </head>
     <body class="hide">

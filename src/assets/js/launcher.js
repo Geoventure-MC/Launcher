@@ -333,7 +333,9 @@ class Launcher {
 
     preloadBackground(account) {
         return new Promise((resolve) => {
-            const defaultBg = '../src/assets/images/background/light.jpg';
+            // Absolute app:// URL (was the brittle '../src/assets/...' relative
+            // path that only resolved under file://).
+            const defaultBg = 'app://bundle/assets/images/background/light.jpg';
             let backgroundUrl = null;
 
             if (this.config.role_data && account.user_info && account.user_info.role) {
@@ -389,7 +391,9 @@ class Launcher {
     }
 
     updateBackground(account) {
-        const defaultBg = '../src/assets/images/background/light.jpg';
+        // Absolute app:// URL (was the brittle '../src/assets/...' relative
+        // path that only resolved under file://).
+        const defaultBg = 'app://bundle/assets/images/background/light.jpg';
         let backgroundUrl = null;
 
         if (this.config.role_data && account.user_info && account.user_info.role) {
