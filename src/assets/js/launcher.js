@@ -19,6 +19,7 @@ import Home from './panels/home.js';
 import Settings from './panels/settings.js';
 import Profile from './panels/profile.js';
 import Changelog from './panels/changelog.js';
+import Instances from './panels/instances.js';
 
 const settings_url = localStorage.getItem('geoventure_server_url') || (pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings);
 const urlPattern = /^(https?:\/\/)/;
@@ -39,7 +40,7 @@ class Launcher {
         this.applyAccentColor();
         this.news = await config.GetNews();
         this.database = await new database().init();
-        this.createPanels(Login, Home, Settings, Profile, Changelog);
+        this.createPanels(Instances, Login, Home, Settings, Profile, Changelog);
         this.getAccounts();
         this.initDiscordRPC();
     }
@@ -116,7 +117,17 @@ class Launcher {
         }
     }
 
+    hasSelectedInstance() {
+        return !!localStorage.getItem('geoventure_selected_instance');
+    }
+
     async getAccounts() {
+        if (!this.hasSelectedInstance()) {
+            changePanel("instances");
+            this.hidePreloader();
+            return;
+        }
+
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
         const AZAuth = new AZauth(this.getAzAuthUrl());
         const accounts = await this.database.getAll('accounts');

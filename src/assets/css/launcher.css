@@ -1,4 +1,5 @@
 @import "font.css";
+@import "panels/instances.css";
 @import "panels/login.css";
 @import "panels/home.css";
 @import "panels/settings.css";

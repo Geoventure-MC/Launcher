@@ -131,5 +131,12 @@
     "phase_patch": "Application du patch",
     "remaining": "restant",
     "unit_mb": "Mo",
-    "unit_gb": "Go"
+    "unit_gb": "Go",
+    "instances_subtitle": "Choisis ton aventure",
+    "instances_play": "JOUER",
+    "instances_install": "INSTALLER",
+    "news_badge": "ACTUALITÉ",
+    "shortcuts_title": "RACCOURCIS",
+    "discover_title": "À DÉCOUVRIR",
+    "back_to_instances": "Changer de serveur"
 }
