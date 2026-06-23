@@ -32,6 +32,20 @@ Le launcher lit le panel via ces routes (définies dans `panel/routes/web.php`) 
 
 Le launcher construit l'URL via `settings_url` (= `pkg.settings` ou `localStorage.geoventure_server_url`) + le chemin. Réponses JSON `JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES`.
 
+## 🧩 Multi-instance (Nexus)
+
+Le launcher s'appelle **Nexus** et propose plusieurs serveurs/instances
+(Geoventure, Elandor, Pokeland) via le sélecteur (`panels/instances`). Chaque
+instance a son propre modpack/loader/mods côté panel. Routing : **`?instance=<slug>`**
+ajouté à tous les appels panel via `utils/instance.js → withInstance()` :
+- `utils/config.js` → `/utils/api?instance=<slug>`
+- `panels/home.js getBaseUrl()` → `/data?instance=<slug>` (modpack séparé)
+- `panels/settings.js` → `/utils/mods?instance=<slug>`
+- `localStorage.geoventure_selected_instance` = le slug actif (set par le picker
+  ET par les pills serveur du home). `utils/gamedir.js` isole le dossier de jeu
+  par instance (`instances/<slug>`), l'instance par défaut (1ʳᵉ de `pkg.servers`)
+  gardant le chemin legacy. Sans instance → comportement global rétrocompatible.
+
 ## ✅ Feature LIVRÉE : Annonces / Notifications
 
 Page admin **📢 Annonces** qui alimente le bandeau de notifications du launcher.
