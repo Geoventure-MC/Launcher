@@ -66,8 +66,8 @@ class Profile extends BasePanel {
 
     _statBadge(icon, label, color) {
         const div = document.createElement('div');
-        div.style.cssText = 'display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;';
-        div.style.color = color || '#e5e7eb';
+        div.className = 'profile-stat-badge';
+        if (color) div.style.color = color;
         div.innerHTML = `<span>${icon}</span><span>${this._escape(label)}</span>`;
         return div;
     }
@@ -82,6 +82,7 @@ class Profile extends BasePanel {
                 return;
             }
 
+
             // Find the current player's rank to surface it in the header.
             const me = this.playerName
                 ? players.find(p => String(p.name).toLowerCase() === String(this.playerName).toLowerCase())
@@ -93,12 +94,10 @@ class Profile extends BasePanel {
 
             el.innerHTML = players.map(p => {
                 const medal = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`;
-                const coins = p.coins != null ? `<span style="color:#fbbf24;">${this._escape(p.coins)} pts</span>` : '';
+                const coins = p.coins != null ? `<span class="profile-coins">${this._escape(p.coins)} pts</span>` : '';
                 const isMe = me && p.name === me.name;
-                const bg = isMe ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.03)';
-                const border = isMe ? 'border:1px solid rgba(74,222,128,0.4);' : '';
-                return `<div style="display:flex;justify-content:space-between;padding:6px 8px;border-radius:6px;background:${bg};${border}margin-bottom:4px;">
-                    <span>${medal} ${this._escape(p.name)}</span>${coins}</div>`;
+                const cls = isMe ? 'profile-row profile-row-me' : 'profile-row';
+                return `<div class="${cls}"><span>${medal} ${this._escape(p.name)}</span>${coins}</div>`;
             }).join('');
         } catch (err) {
             console.warn('[Profile] leaderboard failed:', err);
@@ -130,12 +129,11 @@ class Profile extends BasePanel {
                 const members = f.members != null ? `${this._escape(f.members)} ${t('profile_members') || 'membres'}` : '';
                 const power = f.power != null ? ` · ⚡ ${this._escape(f.power)}` : '';
                 const isMine = myFaction && f.name === myFaction.name;
-                const bg = isMine ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.03)';
-                const border = isMine ? 'border:1px solid rgba(167,139,250,0.4);' : '';
-                const youTag = isMine ? ` <span style="color:#a78bfa;font-size:10px;">(${t('profile_you') || 'vous'})</span>` : '';
-                return `<div style="padding:6px 8px;border-radius:6px;background:${bg};${border}margin-bottom:4px;">
-                    <div style="font-weight:600;">${this._escape(f.name)}${f.tag ? ` <span style="color:#9ca3af;">[${this._escape(f.tag)}]</span>` : ''}${youTag}</div>
-                    <div style="font-size:11px;color:#9ca3af;">${members}${power}</div></div>`;
+                const cls = isMine ? 'profile-faction-row profile-faction-me' : 'profile-faction-row';
+                const youTag = isMine ? ` <span class="profile-faction-you">(${t('profile_you') || 'vous'})</span>` : '';
+                return `<div class="${cls}">
+                    <div class="profile-faction-name">${this._escape(f.name)}${f.tag ? ` <span class="profile-faction-tag">[${this._escape(f.tag)}]</span>` : ''}${youTag}</div>
+                    <div class="profile-faction-meta">${members}${power}</div></div>`;
             }).join('');
         } catch (err) {
             console.warn('[Profile] factions failed:', err);

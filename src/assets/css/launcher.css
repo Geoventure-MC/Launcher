@@ -3,6 +3,8 @@
 @import "panels/login.css";
 @import "panels/home.css";
 @import "panels/settings.css";
+@import "panels/profile.css";
+@import "panels/changelog.css";
 
 * {
     outline: none;
@@ -216,8 +218,10 @@ img {
     visibility: hidden;
     z-index: 0;
     pointer-events: none;
-    transform: translateY(6px);
-    transition: opacity 0.22s ease, visibility 0.22s ease, transform 0.22s ease;
+    transform: translateY(8px) scale(0.99);
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .active {
@@ -225,7 +229,7 @@ img {
     visibility: visible;
     z-index: 1;
     pointer-events: all;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
 }
 
 .rotation {

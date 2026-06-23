@@ -215,6 +215,15 @@
     box-shadow: 0 2px 12px var(--accent-color-glow);
 }
 
+@keyframes playBtnPulse {
+    0%, 100% { box-shadow: 0 4px 20px var(--accent-color-glow); }
+    50% { box-shadow: 0 4px 30px var(--accent-color-glow), 0 0 40px var(--accent-color-glow); }
+}
+
+.play-btn:not(:disabled):not(:hover) {
+    animation: playBtnPulse 3s ease-in-out infinite;
+}
+
 .download-content {
     position: absolute;
     top: 100%;
@@ -769,6 +778,21 @@ body::-webkit-scrollbar {
     opacity: 1;
 }
 
+/* ─── Server Name Indicator ─────────────────────────────────────────────── */
+
+.sidebar-server-name {
+    text-align: center;
+    padding: 8px 6px 4px;
+    font: 600 9px/1.2 'Poppins', sans-serif;
+    color: var(--accent-color, #4ade80);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ─── Server Selector ──────────────────────────────────────────────────────── */
 
 .sidebar-servers {
@@ -1080,6 +1104,30 @@ body::-webkit-scrollbar {
     text-overflow: ellipsis;
     white-space: nowrap;
     margin-top: 1px;
+}
+
+/* ─── Sidebar Icon Buttons ────────────────────────────────────────────────── */
+
+.sidebar-icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 18px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    transition: var(--transition-smooth);
+    margin-bottom: 2px;
+}
+
+.sidebar-icon-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    transform: scale(1.1);
 }
 
 /* ─── Instance Back Button ────────────────────────────────────────────────── */

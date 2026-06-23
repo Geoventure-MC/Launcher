@@ -163,6 +163,20 @@
     right: auto;
 }
 
+.instance-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--card-color, #fff) 30%, transparent);
+    -webkit-user-drag: none;
+    transition: transform 0.3s ease;
+}
+
+.instance-card:hover .instance-logo {
+    transform: scale(1.05);
+}
+
 .instance-icon {
     width: 56px;
     height: 56px;

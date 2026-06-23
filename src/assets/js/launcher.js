@@ -38,6 +38,7 @@ class Launcher {
             return;
         }
         this.applyAccentColor();
+        this.applyServerTheme();
         this.news = await config.GetNews();
         this.database = await new database().init();
         this.createPanels(Instances, Login, Home, Settings, Profile, Changelog);
@@ -307,6 +308,23 @@ class Launcher {
             root.style.setProperty('--accent-color-subtle', this.hexToRgba(color, 0.15));
             root.style.setProperty('--border-accent', this.hexToRgba(color, 0.3));
         }
+    }
+
+    applyServerTheme() {
+        const selectedId = localStorage.getItem('geoventure_selected_instance');
+        if (!selectedId) return;
+        const servers = pkg.servers || [];
+        const server = servers.find(s => s.id === selectedId);
+        if (!server || !server.color) return;
+
+        const root = document.documentElement;
+        const color = server.color;
+        root.style.setProperty('--accent-color', color);
+        root.style.setProperty('--accent-color-dark', this.darkenColor(color, 15));
+        root.style.setProperty('--accent-color-glow', this.hexToRgba(color, 0.4));
+        root.style.setProperty('--accent-color-subtle', this.hexToRgba(color, 0.15));
+        root.style.setProperty('--border-accent', this.hexToRgba(color, 0.3));
+        root.setAttribute('data-server', selectedId);
     }
 
     hexToRgba(hex, alpha) {

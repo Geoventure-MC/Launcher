@@ -133,7 +133,7 @@ class Changelog extends BasePanel {
             return;
         }
 
-        list.innerHTML = `<div class="changelog-empty" style="color:#9ca3af;font-size:13px;text-align:center;padding:24px;">${escapeHtml(t('changelog_loading') || 'Chargement…')}</div>`;
+        list.innerHTML = `<div class="changelog-empty">${escapeHtml(t('changelog_loading') || 'Chargement…')}</div>`;
 
         try {
             const res = await fetch(RELEASES_URL, {
@@ -154,9 +154,7 @@ class Changelog extends BasePanel {
     renderError() {
         const list = document.getElementById('changelog-list');
         if (!list) return;
-        list.innerHTML = `<div class="changelog-empty" style="color:#9ca3af;font-size:13px;text-align:center;padding:24px;line-height:1.6;">
-            ${escapeHtml(t('changelog_error') || 'Impossible de charger les nouveautés (hors ligne ou limite GitHub atteinte).')}
-        </div>`;
+        list.innerHTML = `<div class="changelog-empty">${escapeHtml(t('changelog_error') || 'Impossible de charger les nouveautés (hors ligne ou limite GitHub atteinte).')}</div>`;
     }
 
     renderReleases(releases) {
@@ -165,7 +163,7 @@ class Changelog extends BasePanel {
 
         const visible = releases.filter(r => !r.draft);
         if (!visible.length) {
-            list.innerHTML = `<div class="changelog-empty" style="color:#9ca3af;font-size:13px;text-align:center;padding:24px;">${escapeHtml(t('changelog_empty') || 'Aucune version publiée.')}</div>`;
+            list.innerHTML = `<div class="changelog-empty">${escapeHtml(t('changelog_empty') || 'Aucune version publiée.')}</div>`;
             return;
         }
 
@@ -176,21 +174,20 @@ class Changelog extends BasePanel {
             const tag = rel.tag_name || rel.name || '';
             const dateStr = rel.published_at ? this.formatDate(rel.published_at) : '';
             const newBadge = (tag && current && isNewer(tag, current))
-                ? `<span class="cl-new-badge" style="background:#4ade80;color:#062;font-size:10px;font-weight:700;border-radius:6px;padding:2px 7px;margin-left:8px;">${escapeHtml(t('changelog_new') || 'NOUVEAU')}</span>`
+                ? `<span class="cl-new-badge">${escapeHtml(t('changelog_new') || 'NOUVEAU')}</span>`
                 : '';
 
             const card = document.createElement('div');
             card.className = 'changelog-card';
-            card.style.cssText = 'background:rgba(0,0,0,0.35);border-radius:12px;padding:16px;';
             card.innerHTML = `
-                <div class="cl-card-head" style="display:flex;align-items:center;margin-bottom:10px;">
-                    <span class="cl-version" style="font-size:15px;font-weight:700;color:#fff;">${escapeHtml(tag)}</span>
+                <div class="cl-card-head">
+                    <span class="cl-version">${escapeHtml(tag)}</span>
                     ${newBadge}
                     <span style="flex:1;"></span>
-                    <span class="cl-date" style="font-size:12px;color:#9ca3af;">${escapeHtml(dateStr)}</span>
+                    <span class="cl-date">${escapeHtml(dateStr)}</span>
                 </div>
-                <div class="cl-body" style="font-size:13px;color:#e5e7eb;line-height:1.6;">
-                    ${rel.body ? renderMarkdown(rel.body) : `<p style="color:#9ca3af;">${escapeHtml(t('changelog_no_notes') || 'Pas de notes de version.')}</p>`}
+                <div class="cl-body">
+                    ${rel.body ? renderMarkdown(rel.body) : `<p class="changelog-empty">${escapeHtml(t('changelog_no_notes') || 'Pas de notes de version.')}</p>`}
                 </div>`;
 
             // Wire markdown links to the external browser (no in-app navigation).

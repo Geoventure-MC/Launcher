@@ -911,6 +911,13 @@ class Home {
         const container = document.getElementById('server-selector');
         if (!container) return;
 
+        const selectedId = localStorage.getItem('geoventure_selected_instance');
+        const nameEl = document.getElementById('sidebar-server-name');
+        if (nameEl && selectedId) {
+            const sel = servers.find(s => s.id === selectedId);
+            if (sel) nameEl.textContent = sel.name;
+        }
+
         const currentUrl = localStorage.getItem('geoventure_server_url') || settings_url;
 
         servers.forEach(server => {
