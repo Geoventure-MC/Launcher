@@ -53,8 +53,40 @@ export {
 function changePanel(id) {
     const panel = document.querySelector(`.${id}`);
     const active = document.querySelector('.panel.active');
-    if (active) active.classList.remove("active");
-    panel.classList.add("active");
+    if (active && active !== panel) {
+        active.classList.remove("active");
+        suspendPanelIframes(active);
+    }
+    if (panel) {
+        panel.classList.add("active");
+        resumePanelIframes(panel);
+    }
+}
+
+// Cross-origin iframes (le rendu 3D du skin dans les paramètres, l'embed
+// YouTube de l'accueil) conservent leur calque de compositing GPU affiché à
+// l'écran même après que le panneau parent est masqué via opacity/visibility/
+// transform — bug "iframe ghosting" connu d'Electron/Chromium. Vider le src
+// quand le panneau est masqué détruit ce calque ; on le restaure quand le
+// panneau redevient visible.
+function suspendPanelIframes(panel) {
+    panel.querySelectorAll('iframe').forEach((frame) => {
+        const src = frame.getAttribute('src');
+        if (src && src !== 'about:blank') {
+            frame.dataset.suspendedSrc = src;
+            frame.setAttribute('src', 'about:blank');
+        }
+    });
+}
+
+function resumePanelIframes(panel) {
+    panel.querySelectorAll('iframe').forEach((frame) => {
+        const src = frame.dataset.suspendedSrc;
+        if (src) {
+            frame.setAttribute('src', src);
+            delete frame.dataset.suspendedSrc;
+        }
+    });
 }
 
 function addAccount(data) {
