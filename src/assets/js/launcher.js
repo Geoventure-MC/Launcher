@@ -325,9 +325,10 @@ class Launcher {
 
     updateWhitelist(account) {
         const playBtn = document.querySelector(".play-btn");
+        const roleName = account.user_info?.role?.name || null;
         if (this.config.whitelist_activate &&
             (!this.config.whitelist.includes(account.name) &&
-                !this.config.whitelist_roles.includes(account.user_info.role.name))) {
+                (!roleName || !this.config.whitelist_roles.includes(roleName)))) {
             playBtn.style.background = "#696969";
             playBtn.style.pointerEvents = "none";
             playBtn.style.boxShadow = "none";
