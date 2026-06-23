@@ -10,6 +10,7 @@
 import { database, changePanel, accountSelect, Slider, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
 import { isConsented, setConsent } from '../utils/telemetry.js';
 import { getGameDirectory } from '../utils/gamedir.js';
+import { withInstance } from '../utils/instance.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -331,7 +332,7 @@ class Settings {
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
 
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        const response = await fetch(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`);
+        const response = await fetch(withInstance(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`));
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const apiMods = await response.json();
         const apiModsSet = new Set(apiMods.optionalMods);
@@ -400,7 +401,7 @@ class Settings {
 
     async createModsConfig(modsConfigFile) {
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        const response = await fetch(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`);
+        const response = await fetch(withInstance(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`));
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         const modsConfig = {};
@@ -423,7 +424,7 @@ class Settings {
         }
 
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        const response = await fetch(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`);
+        const response = await fetch(withInstance(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/mods` : `${baseUrl}utils/mods`));
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
 

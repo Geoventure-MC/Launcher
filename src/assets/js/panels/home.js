@@ -11,6 +11,7 @@ import { logger, database, changePanel, t } from '../utils.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory } from '../utils/gamedir.js';
+import { withInstance } from '../utils/instance.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -347,7 +348,8 @@ class Home {
 
     getBaseUrl() {
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        return pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/files` : `${baseUrl}data/`;
+        const url = pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/files` : `${baseUrl}data/`;
+        return withInstance(url);
     }
 
     // Per-server game directory (the default server keeps its legacy path).
@@ -928,13 +930,22 @@ class Home {
             pill.textContent = server.name.charAt(0).toUpperCase();
             pill.dataset.serverId = server.id;
 
-            if (server.settings === currentUrl || server.settings + '/' === currentUrl) {
+            // Instances share a single panel URL: the active pill is the
+            // currently-SELECTED instance (or, legacy fallback, the URL match).
+            const selectedInstance = localStorage.getItem('geoventure_selected_instance');
+            const isActive = selectedInstance
+                ? server.id === selectedInstance
+                : (server.settings === currentUrl || server.settings + '/' === currentUrl);
+            if (isActive) {
                 pill.classList.add('active');
             }
 
             pill.addEventListener('click', () => {
                 if (pill.classList.contains('active')) return;
+                // Switch both the panel URL and the selected instance so the
+                // theme, modpack and per-instance config all stay in sync.
                 localStorage.setItem('geoventure_server_url', server.settings);
+                localStorage.setItem('geoventure_selected_instance', server.id);
                 const info = document.querySelector('.text-download');
                 if (info) {
                     info.style.display = 'block';

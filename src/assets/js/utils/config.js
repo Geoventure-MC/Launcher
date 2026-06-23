@@ -5,15 +5,19 @@
  *
  * Edited by CentralCorp Team
  */
+import { withInstance } from './instance.js';
 const pkg = require('../package.json');
 const fetch = require("node-fetch");
 const convert = require("xml-js");
 
-const settings_url = pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings;
+// Honour a per-server override (instance picker) before falling back to pkg.
+const settings_url = (typeof localStorage !== 'undefined' && localStorage.getItem('geoventure_server_url'))
+    || (pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings);
 
 function getConfigUrl() {
     const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-    return pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/options` : `${baseUrl}utils/api`;
+    const url = pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/options` : `${baseUrl}utils/api`;
+    return withInstance(url);
 }
 
 export function getAzAuthUrl(config) {

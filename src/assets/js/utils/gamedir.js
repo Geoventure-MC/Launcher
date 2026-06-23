@@ -32,34 +32,43 @@ function getBaseDirectory(dataDirectory, config) {
     return path.join(dataDirectory, folder);
 }
 
-// Is the currently-active server the default one? (legacy path applies)
-function isDefaultServer() {
-    const active = localStorage.getItem('geoventure_server_url');
-    if (!active) return true;
-    const norm = (u) => String(u || '').replace(/\/+$/, '');
-    return norm(active) === norm(pkg.settings);
+// The id of the first/default instance (its modpack keeps the legacy path).
+function getDefaultInstanceId() {
+    if (Array.isArray(pkg.servers) && pkg.servers.length) {
+        return pkg.servers[0].id || null;
+    }
+    return null;
 }
 
-// Find the active server entry in pkg.servers (by its settings url).
-function getActiveServer() {
-    const active = localStorage.getItem('geoventure_server_url');
-    if (!active || !Array.isArray(pkg.servers)) return null;
-    const norm = (u) => String(u || '').replace(/\/+$/, '');
-    return pkg.servers.find(s => norm(s.settings) === norm(active)) || null;
+// The currently-selected instance id (from the instance picker), or null.
+function getSelectedInstanceId() {
+    return localStorage.getItem('geoventure_selected_instance') || null;
+}
+
+// Is the active instance the default one? (legacy path applies)
+//
+// Instances now share a single panel URL and are distinguished by their slug
+// (geoventure/elandor/pokeland), so isolation keys off the SELECTED INSTANCE,
+// not the server URL. The default instance keeps the historical directory so
+// existing worlds/mods are never orphaned; every other instance gets its own
+// isolated sub-directory with a fully separate modpack.
+function isDefaultServer() {
+    const selected = getSelectedInstanceId();
+    if (!selected) return true;
+    const def = getDefaultInstanceId();
+    return def ? selected === def : false;
 }
 
 /**
- * The active server's game directory.
- *  - default server  -> <baseDir>            (unchanged, backward compatible)
- *  - other server     -> <baseDir>/instances/<slug>
+ * The active instance's game directory.
+ *  - default instance -> <baseDir>                       (backward compatible)
+ *  - other instance    -> <baseDir>/instances/<slug>
  */
 function getGameDirectory(dataDirectory, config) {
     const base = getBaseDirectory(dataDirectory, config);
     if (isDefaultServer()) return base;
 
-    const server = getActiveServer();
-    const slug = slugify(server ? (server.id || server.name || server.settings)
-                                : localStorage.getItem('geoventure_server_url'));
+    const slug = slugify(getSelectedInstanceId());
     return path.join(base, 'instances', slug);
 }
 
