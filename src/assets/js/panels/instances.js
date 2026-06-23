@@ -128,10 +128,12 @@ class Instances {
 
     getGameDir(serverId) {
         const folderName = this.config?.dataDirectory || 'geoventure';
-        if (serverId === 'geoventure' || !serverId) {
-            return path.join(dataDirectory, `.${folderName}`);
-        }
-        return path.join(dataDirectory, `.${folderName}`, 'instances', serverId);
+        const base = process.platform === 'darwin'
+            ? path.join(dataDirectory, folderName)
+            : path.join(dataDirectory, `.${folderName}`);
+        const defaultId = (pkg.servers && pkg.servers.length) ? pkg.servers[0].id : null;
+        if (!serverId || serverId === defaultId) return base;
+        return path.join(base, 'instances', serverId);
     }
 
     selectServer(server) {

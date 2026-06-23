@@ -28,9 +28,7 @@ async function sendEvent(event, extra = {}) {
     if (!isConsented()) return;
 
     const panelUrl = getPanelUrl();
-    const serverId = localStorage.getItem('geoventure_server_url')
-        ? pkg.servers?.find(s => s.settings === localStorage.getItem('geoventure_server_url'))?.id ?? 'unknown'
-        : 'unknown';
+    const serverId = localStorage.getItem('geoventure_selected_instance') || 'default';
 
     const payload = {
         event,

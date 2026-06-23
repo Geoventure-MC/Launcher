@@ -363,7 +363,6 @@ class Home {
             // The lib emits the entry name being extracted (when available).
             if (extract && typeof extract === 'string') this.currentFile = extract;
             this._setPhase('extract');
-            console.log(extract);
         });
         launch.on('progress', (progress, size, file) => {
             if (file) this.currentFile = file;
@@ -396,7 +395,6 @@ class Home {
             this.appendLog(err && err.error ? err.error : String(err));
             const logToggle = document.getElementById('log-toggle-btn');
             if (logToggle) logToggle.style.display = '';
-            console.log(err);
         });
     }
 
@@ -535,8 +533,6 @@ class Home {
 
         const logToggle = document.getElementById('log-toggle-btn');
         if (logToggle) logToggle.style.display = '';
-
-        console.log(e);
     }
 
     handleLaunchClose(code, info, progressBar, playBtn, launcherSettings) {
@@ -553,7 +549,6 @@ class Home {
         const sessionDuration = Math.round((Date.now() - sessionStart) / 1000);
         sendEvent('close', { sessionDuration });
 
-        console.log('Close');
     }
 
     async initStatusServer() {
@@ -839,7 +834,6 @@ class Home {
         const modsConfigFile = path.join(launcherConfigDir, 'mods_config.json');
 
         if (!fs.existsSync(modsDir) || !fs.existsSync(modsConfigFile)) {
-            console.log("Mods directory or config not found, skipping mod verification (first launch).");
             return;
         }
 
@@ -889,9 +883,10 @@ class Home {
 
     updateWhitelist(account) {
         const playBtn = document.querySelector(".play-btn");
+        const roleName = account.user_info?.role?.name || null;
         if (this.config.whitelist_activate &&
             (!this.config.whitelist.includes(account.name) &&
-                !this.config.whitelist_roles.includes(account.user_info.role.name))) {
+                (!roleName || !this.config.whitelist_roles.includes(roleName)))) {
             playBtn.style.background = "#696969";
             playBtn.style.pointerEvents = "none";
             playBtn.style.boxShadow = "none";
