@@ -325,6 +325,13 @@ class Launcher {
         root.style.setProperty('--accent-color-subtle', this.hexToRgba(color, 0.15));
         root.style.setProperty('--border-accent', this.hexToRgba(color, 0.3));
         root.setAttribute('data-server', selectedId);
+
+        const bgFile = `${__dirname}/../assets/images/background/bg_${selectedId}.jpg`;
+        try {
+            if (fs.existsSync(bgFile)) {
+                document.body.style.backgroundImage = `linear-gradient(#00000066, #00000066), url("../src/assets/images/background/bg_${selectedId}.jpg")`;
+            }
+        } catch {}
     }
 
     hexToRgba(hex, alpha) {
