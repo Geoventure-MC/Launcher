@@ -74,7 +74,7 @@ class Home {
         sessionStart = Date.now();
 
         this.setStaticTexts();
-        this.initNews();
+        this.initNewsHero();
         this.initLaunch();
         this.initStatusServer();
         this.initBtn();
@@ -88,6 +88,8 @@ class Home {
         this.initLogConsole();
         this.validateApiSchema();
         this.initOfflineBadge();
+        this.initLauncherContent();
+        this.initInstanceBack();
 
         sendEvent('launch');
     }
@@ -102,21 +104,65 @@ class Home {
         document.getElementById('view-video-btn').textContent = t('view_video');
     }
 
-    async initNews() {
-        const newsContainer = document.querySelector('.news-list');
-        if (this.news) {
-            if (!this.news.length) {
-                this.createNewsBlock(newsContainer, t('no_news_available'), t('news_follow_here'));
-            } else {
-                for (const newsItem of this.news) {
-                    const date = await this.getDate(newsItem.publish_date);
-                    this.createNewsBlock(newsContainer, newsItem.title, newsItem.content, newsItem.author, date, newsItem.image);
-                }
-            }
-        } else {
-            this.createNewsBlock(newsContainer, t('error_contacting_server'), t('error_contacting_server'));
-        }
+    async initNewsHero() {
         this.setServerIcon();
+        this.heroItems = [];
+        this.heroIndex = 0;
+
+        if (this.news && this.news.length) {
+            this.heroItems = this.news.slice(0, 5);
+        }
+
+        if (!this.heroItems.length) {
+            this.heroItems = [{
+                title: t('no_news_available') || 'Aucune actualité',
+                content: t('news_follow_here') || '',
+                image: null,
+            }];
+        }
+
+        this.renderHero();
+        if (this.heroItems.length > 1) {
+            this._heroInterval = setInterval(() => {
+                this.heroIndex = (this.heroIndex + 1) % this.heroItems.length;
+                this.renderHero();
+            }, 8000);
+        }
+    }
+
+    renderHero() {
+        const item = this.heroItems[this.heroIndex];
+        if (!item) return;
+
+        const bg = document.getElementById('news-hero-bg');
+        const title = document.getElementById('news-hero-title');
+        const desc = document.getElementById('news-hero-desc');
+        const badge = document.getElementById('news-hero-badge');
+        const nav = document.getElementById('news-hero-nav');
+
+        if (bg) {
+            const safeImg = item.image ? safeHttpUrl(item.image) : null;
+            bg.style.backgroundImage = safeImg ? `url('${safeImg}')` : '';
+        }
+        if (title) title.textContent = item.title || '';
+        if (desc) {
+            const plain = String(item.content || '').replace(/<[^>]*>/g, '').substring(0, 200);
+            desc.textContent = plain;
+        }
+        if (badge) badge.textContent = t('news_badge') || 'ACTUALITÉ';
+
+        if (nav && this.heroItems.length > 1) {
+            nav.innerHTML = '';
+            this.heroItems.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = `news-hero-dot${i === this.heroIndex ? ' active' : ''}`;
+                dot.addEventListener('click', () => {
+                    this.heroIndex = i;
+                    this.renderHero();
+                });
+                nav.appendChild(dot);
+            });
+        }
     }
 
     createNewsBlock(container, title, content, author = '', date = {}, image = null) {
@@ -1072,6 +1118,180 @@ class Home {
         update();
         window.addEventListener('online', update);
         window.addEventListener('offline', update);
+    }
+
+    initInstanceBack() {
+        const btn = document.getElementById('instance-back-btn');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                localStorage.removeItem('geoventure_selected_instance');
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.send('main-window-reload');
+            });
+        }
+    }
+
+    async initLauncherContent() {
+        try {
+            const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+            const res = await fetch(`${base}utils/launcher-content`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                signal: AbortSignal.timeout(5000),
+            });
+            if (!res.ok) {
+                this.renderDefaultShortcuts();
+                this.renderDefaultDiscover();
+                return;
+            }
+            const data = await res.json();
+            this.renderShortcuts(data.shortcuts || []);
+            this.renderDiscover(data.discover || []);
+
+            if (data.news_banners && data.news_banners.length) {
+                this.mergeHeroBanners(data.news_banners);
+            }
+        } catch {
+            this.renderDefaultShortcuts();
+            this.renderDefaultDiscover();
+        }
+    }
+
+    mergeHeroBanners(banners) {
+        const newItems = banners.map(b => ({
+            title: b.title,
+            content: b.description || '',
+            image: b.imageUrl || null,
+            url: b.url || null,
+        }));
+        if (newItems.length) {
+            this.heroItems = [...newItems, ...this.heroItems].slice(0, 8);
+            this.heroIndex = 0;
+            this.renderHero();
+        }
+    }
+
+    renderShortcuts(items) {
+        const row = document.getElementById('shortcuts-row');
+        if (!row) return;
+
+        const titleEl = document.getElementById('shortcuts-title');
+        if (titleEl) titleEl.textContent = t('shortcuts_title') || 'RACCOURCIS';
+
+        if (!items.length) {
+            this.renderDefaultShortcuts();
+            return;
+        }
+
+        row.innerHTML = '';
+        for (const item of items) {
+            const card = document.createElement('div');
+            card.className = 'shortcut-card';
+            card.innerHTML = `
+                <div class="shortcut-icon">${escapeHtml(item.icon || '🔗')}</div>
+                <div>
+                    <div class="shortcut-label">${escapeHtml(item.title)}</div>
+                    ${item.description ? `<div class="shortcut-sublabel">${escapeHtml(item.description)}</div>` : ''}
+                </div>
+            `;
+            if (item.url) {
+                card.addEventListener('click', () => shell.openExternal(item.url));
+            }
+            row.appendChild(card);
+        }
+    }
+
+    renderDefaultShortcuts() {
+        const row = document.getElementById('shortcuts-row');
+        if (!row) return;
+
+        const titleEl = document.getElementById('shortcuts-title');
+        if (titleEl) titleEl.textContent = t('shortcuts_title') || 'RACCOURCIS';
+
+        const defaults = [
+            { icon: '💬', title: 'Discord', url: 'https://discord.gg/VCmNXHvf77' },
+            { icon: '🌐', title: 'Site Web', url: this.config.azauth || '' },
+            { icon: '🗳️', title: 'Vote', desc: 'Voter pour le serveur' },
+            { icon: '🛒', title: 'Boutique', desc: 'Boutique en ligne' },
+        ];
+
+        row.innerHTML = '';
+        for (const item of defaults) {
+            const card = document.createElement('div');
+            card.className = 'shortcut-card';
+            card.innerHTML = `
+                <div class="shortcut-icon">${item.icon}</div>
+                <div>
+                    <div class="shortcut-label">${escapeHtml(item.title)}</div>
+                    ${item.desc ? `<div class="shortcut-sublabel">${escapeHtml(item.desc)}</div>` : ''}
+                </div>
+            `;
+            if (item.url) {
+                card.addEventListener('click', () => shell.openExternal(item.url));
+            }
+            row.appendChild(card);
+        }
+    }
+
+    renderDiscover(items) {
+        const container = document.getElementById('discover-cards');
+        if (!container) return;
+
+        const titleEl = document.getElementById('discover-title');
+        if (titleEl) titleEl.textContent = t('discover_title') || 'À DÉCOUVRIR';
+
+        if (!items.length) {
+            this.renderDefaultDiscover();
+            return;
+        }
+
+        container.innerHTML = '';
+        for (const item of items) {
+            const card = document.createElement('div');
+            card.className = 'discover-card';
+            const safeImg = item.imageUrl ? safeHttpUrl(item.imageUrl) : null;
+            card.innerHTML = `
+                ${safeImg ? `<div class="discover-card-bg" style="background-image:url('${escapeHtml(safeImg)}')"></div>` : '<div class="discover-card-bg"></div>'}
+                <div class="discover-card-overlay"></div>
+                <div class="discover-card-body">
+                    <div class="discover-card-title">${escapeHtml(item.title)}</div>
+                    ${item.description ? `<div class="discover-card-desc">${escapeHtml(item.description)}</div>` : ''}
+                </div>
+            `;
+            if (item.url) {
+                card.addEventListener('click', () => shell.openExternal(item.url));
+            }
+            container.appendChild(card);
+        }
+    }
+
+    renderDefaultDiscover() {
+        const container = document.getElementById('discover-cards');
+        if (!container) return;
+
+        const titleEl = document.getElementById('discover-title');
+        if (titleEl) titleEl.textContent = t('discover_title') || 'À DÉCOUVRIR';
+
+        const defaults = [
+            { title: 'Factions', desc: 'Crée ta nation, conquiers des territoires' },
+            { title: 'Économie', desc: 'GeoCoins, HDV, échanges entre joueurs' },
+            { title: 'Machines', desc: '40+ machines industrielles à débloquer' },
+            { title: 'Convois', desc: 'Échange entre factions via convois armés' },
+        ];
+
+        container.innerHTML = '';
+        for (const item of defaults) {
+            const card = document.createElement('div');
+            card.className = 'discover-card';
+            card.innerHTML = `
+                <div class="discover-card-bg"></div>
+                <div class="discover-card-overlay"></div>
+                <div class="discover-card-body">
+                    <div class="discover-card-title">${escapeHtml(item.title)}</div>
+                    <div class="discover-card-desc">${escapeHtml(item.desc)}</div>
+                </div>
+            `;
+            container.appendChild(card);
+        }
     }
 
     appendLog(text) {

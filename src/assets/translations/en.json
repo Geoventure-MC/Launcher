@@ -132,5 +132,12 @@
     "phase_patch": "Applying patch",
     "remaining": "remaining",
     "unit_mb": "MB",
-    "unit_gb": "GB"
+    "unit_gb": "GB",
+    "instances_subtitle": "Choose your adventure",
+    "instances_play": "PLAY",
+    "instances_install": "INSTALL",
+    "news_badge": "NEWS",
+    "shortcuts_title": "SHORTCUTS",
+    "discover_title": "DISCOVER",
+    "back_to_instances": "Switch server"
 }
