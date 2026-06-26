@@ -634,7 +634,7 @@ class Home {
     async fetchServersStatus() {
         try {
             const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-            const res = await fetch(`${base}utils/servers-status`, {
+            const res = await fetch(withInstance(`${base}utils/servers-status`), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(5000),
             });
@@ -680,7 +680,7 @@ class Home {
 
         try {
             const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-            const res = await fetch(`${base}utils/notifications`, {
+            const res = await fetch(withInstance(`${base}utils/notifications`), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(4000),
             });
@@ -1147,7 +1147,7 @@ class Home {
     async initLauncherContent() {
         try {
             const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-            const res = await fetch(`${base}utils/launcher-content`, {
+            const res = await fetch(withInstance(`${base}utils/launcher-content`), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(5000),
             });

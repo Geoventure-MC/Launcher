@@ -5,6 +5,7 @@
  */
 'use strict';
 
+import { withInstance } from './instance.js';
 const pkg = require('../package.json');
 const { version } = pkg;
 
@@ -40,7 +41,7 @@ async function sendEvent(event, extra = {}) {
 
     try {
         // Endpoint dédié côté panel : POST {panel}/utils/telemetry
-        await fetch(`${panelUrl}utils/telemetry`, {
+        await fetch(withInstance(`${panelUrl}utils/telemetry`), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -3,18 +3,19 @@
  */
 'use strict';
 
+import { withInstance } from './instance.js';
 const SUPPORTED_SCHEMA_VERSION = '1.0.0';
 
 async function fetchSchema(panelUrl) {
     const base = panelUrl.endsWith('/') ? panelUrl : `${panelUrl}/`;
     try {
-        const res = await fetch(`${base}api-schema.json`, { signal: AbortSignal.timeout(4000) });
+        const res = await fetch(withInstance(`${base}api-schema.json`), { signal: AbortSignal.timeout(4000) });
         if (!res.ok) return null;
         return await res.json();
     } catch {
         // Fall back to installer-style endpoint
         try {
-            const res = await fetch(`${base}?execute=php&action=api-schema`, {
+            const res = await fetch(withInstance(`${base}?execute=php&action=api-schema`), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 signal: AbortSignal.timeout(4000),
             });

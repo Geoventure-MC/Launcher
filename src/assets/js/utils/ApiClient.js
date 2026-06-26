@@ -2,6 +2,7 @@
  * ApiClient — centralizes all panel API calls to the Geoventure panel.
  * All methods return the parsed JSON payload or throw on non-2xx responses.
  */
+import { withInstance } from './instance.js';
 const pkg = require('../package.json');
 const fetch = require('node-fetch');
 
@@ -13,14 +14,14 @@ function base() {
 }
 
 async function _get(path) {
-    const url = `${base()}${path}`;
+    const url = withInstance(`${base()}${path}`);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
     return res.json();
 }
 
 async function _post(path, body) {
-    const url = `${base()}${path}`;
+    const url = withInstance(`${base()}${path}`);
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
