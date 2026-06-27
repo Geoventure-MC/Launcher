@@ -12,6 +12,7 @@ import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
+import { recordLaunch, addPlaytime } from '../utils/achievements.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -531,6 +532,20 @@ class Home {
         info.innerHTML = t('starting');
         this.appendLog(String(e));
 
+        // Achievements: the game has actually started — count the launch and
+        // stamp the play start so we can accumulate playtime on close. Wrapped
+        // so a failure here can never disturb the launch.
+        if (!this._launchCounted) {
+            this._launchCounted = true;
+            this._playStart = Date.now();
+            try {
+                const slug = localStorage.getItem('geoventure_selected_instance') || null;
+                recordLaunch(slug);
+            } catch (err) {
+                console.warn('[achievements] recordLaunch failed:', err);
+            }
+        }
+
         const logToggle = document.getElementById('log-toggle-btn');
         if (logToggle) logToggle.style.display = '';
     }
@@ -549,6 +564,17 @@ class Home {
         const sessionDuration = Math.round((Date.now() - sessionStart) / 1000);
         sendEvent('close', { sessionDuration });
 
+        // Achievements: accumulate the elapsed playtime (game start → close).
+        // Defensive — never let this disturb the close handling.
+        if (this._playStart) {
+            try {
+                addPlaytime((Date.now() - this._playStart) / 60000);
+            } catch (err) {
+                console.warn('[achievements] addPlaytime failed:', err);
+            }
+            this._playStart = null;
+        }
+        this._launchCounted = false;
     }
 
     async initStatusServer() {
