@@ -782,84 +782,183 @@ class Settings {
     async initCommunityMods() {
         const infoEl = document.getElementById('community-info');
         const listEl = document.getElementById('community-mods-list');
+        const toolbarEl = document.getElementById('community-toolbar');
+        const searchInput = document.getElementById('community-search-input');
+        const filtersEl = document.getElementById('community-filters');
         if (!listEl) return;
 
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
 
         if (infoEl) {
-            infoEl.textContent = t('community_mods_info') || 'Ces mods sont approuvés par les administrateurs. Vous pouvez les installer ou désinstaller librement.';
+            infoEl.textContent = t('community_mods_info');
+        }
+        if (searchInput) {
+            searchInput.placeholder = t('community_search_placeholder');
         }
 
+        // Loading state.
+        if (toolbarEl) toolbarEl.style.display = 'none';
+        listEl.innerHTML = `<div class="mods-container-empty community-loading"><span class="community-spinner"></span>${t('community_loading')}</div>`;
+
+        let mods;
         try {
             let response = await fetch(withInstance(`${baseUrl}utils/community-mods`));
             if (!response.ok) response = await fetch(withInstance(`${baseUrl}api/centralcorp/community-mods`));
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const mods = await response.json();
+            mods = await response.json();
+        } catch (err) {
+            console.error('Failed to fetch community mods:', err);
+            listEl.innerHTML = `<div class="mods-container-empty"><h2>${t('community_load_error')}</h2></div>`;
+            return;
+        }
 
-            if (!mods || !mods.length) {
-                listEl.innerHTML = `<div class="mods-container-empty"><h2>Aucun mod communauté disponible</h2></div>`;
-                return;
-            }
+        if (!Array.isArray(mods) || !mods.length) {
+            listEl.innerHTML = `<div class="mods-container-empty"><h2>${t('community_empty')}</h2></div>`;
+            return;
+        }
 
-            const modsDir = path.join(this.gameDir(), 'mods');
+        const modsDir = path.join(this.gameDir(), 'mods');
+
+        // Categories are optional in the API payload; only build the filter when present.
+        const categories = [...new Set(
+            mods.map(m => (m.category || '').trim()).filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b));
+
+        let activeCategory = 'all';
+        let searchTerm = '';
+
+        const render = () => {
+            const term = searchTerm.toLowerCase();
+            const visible = mods.filter(mod => {
+                if (activeCategory !== 'all' && (mod.category || '').trim() !== activeCategory) return false;
+                if (!term) return true;
+                const haystack = `${mod.name || ''} ${mod.description || ''} ${mod.author || ''}`.toLowerCase();
+                return haystack.includes(term);
+            });
 
             listEl.innerHTML = '';
 
-            for (const mod of mods) {
+            if (!visible.length) {
+                listEl.innerHTML = `<div class="mods-container-empty">${t('community_no_results')}</div>`;
+                return;
+            }
+
+            for (const mod of visible) {
                 const modFileName = mod.filename || path.basename(mod.url || '');
-                const modFilePath = path.join(modsDir, modFileName);
-                const isInstalled = fs.existsSync(modFilePath);
+                const modFilePath = modFileName ? path.join(modsDir, modFileName) : '';
+                const isInstalled = !!modFilePath && fs.existsSync(modFilePath);
+                const canInstall = !!(mod.url && modFileName);
 
                 const el = document.createElement('div');
                 el.classList.add('mods-container');
+
+                const safeName = this._escapeHtml(mod.name || '');
+                const metaParts = [];
+                if (mod.author) metaParts.push(`<span class="community-meta-author">${this._escapeHtml(mod.author)}</span>`);
+                if (mod.version) metaParts.push(`<span class="community-meta-version">v${this._escapeHtml(mod.version)}</span>`);
+
                 el.innerHTML = `
-                    ${mod.icon ? `<img src="${mod.icon}" class="mods-icon" alt="${mod.name}">` : ''}
+                    ${mod.icon ? `<img src="${this._escapeHtml(mod.icon)}" class="mods-icon" alt="${safeName}" onerror="this.style.display='none'">` : ''}
                     <div class="mods-container-text">
-                        <div class="mods-container-name"><h2>${mod.name}</h2></div>
-                        <div class="mod-description">${mod.description || t('no_mod_description')}</div>
+                        <div class="mods-container-name">
+                            <h2>${safeName}</h2>
+                            ${mod.category ? `<span class="community-badge">${this._escapeHtml(mod.category)}</span>` : ''}
+                        </div>
+                        ${metaParts.length ? `<div class="community-meta">${metaParts.join('')}</div>` : ''}
+                        <div class="mod-description">${this._escapeHtml(mod.description || t('no_mod_description'))}</div>
                     </div>
-                    <button class="community-mod-btn ${isInstalled ? 'uninstall' : 'install'}" data-filename="${modFileName}" data-url="${mod.url || ''}">
-                        ${isInstalled ? (t('uninstall_mod') || 'Désinstaller') : (t('install_mod') || 'Installer')}
-                    </button>
+                    <div class="community-actions">
+                        ${mod.url ? `<button class="community-link-btn" type="button">${t('community_open_link')}</button>` : ''}
+                        ${canInstall ? `<button class="community-mod-btn ${isInstalled ? 'uninstall' : 'install'}">${isInstalled ? t('uninstall_mod') : t('install_mod')}</button>` : ''}
+                    </div>
                 `;
 
+                const linkBtn = el.querySelector('.community-link-btn');
+                if (linkBtn) {
+                    linkBtn.addEventListener('click', () => {
+                        if (mod.url) shell.openExternal(mod.url);
+                    });
+                }
+
                 const btn = el.querySelector('.community-mod-btn');
-                btn.addEventListener('click', async () => {
-                    if (btn.classList.contains('install')) {
-                        btn.disabled = true;
-                        btn.textContent = '...';
-                        try {
-                            if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
-                            const nodeFetch = require('node-fetch');
-                            const fileRes = await nodeFetch(mod.url);
-                            const buffer = await fileRes.buffer();
-                            fs.writeFileSync(modFilePath, buffer);
-                            btn.classList.remove('install');
-                            btn.classList.add('uninstall');
-                            btn.textContent = t('uninstall_mod') || 'Désinstaller';
-                        } catch (err) {
-                            console.error('Failed to install mod:', err);
-                            btn.textContent = 'Erreur';
+                if (btn) {
+                    btn.addEventListener('click', async () => {
+                        if (btn.classList.contains('install')) {
+                            btn.disabled = true;
+                            btn.textContent = '...';
+                            try {
+                                if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
+                                const nodeFetch = require('node-fetch');
+                                const fileRes = await nodeFetch(mod.url);
+                                if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`);
+                                const buffer = await fileRes.buffer();
+                                fs.writeFileSync(modFilePath, buffer);
+                                btn.classList.remove('install');
+                                btn.classList.add('uninstall');
+                                btn.textContent = t('uninstall_mod');
+                            } catch (err) {
+                                console.error('Failed to install mod:', err);
+                                btn.textContent = t('community_error');
+                            }
+                            btn.disabled = false;
+                        } else {
+                            try {
+                                if (fs.existsSync(modFilePath)) fs.unlinkSync(modFilePath);
+                                btn.classList.remove('uninstall');
+                                btn.classList.add('install');
+                                btn.textContent = t('install_mod');
+                            } catch (err) {
+                                console.error('Failed to uninstall mod:', err);
+                            }
                         }
-                        btn.disabled = false;
-                    } else {
-                        try {
-                            if (fs.existsSync(modFilePath)) fs.unlinkSync(modFilePath);
-                            btn.classList.remove('uninstall');
-                            btn.classList.add('install');
-                            btn.textContent = t('install_mod') || 'Installer';
-                        } catch (err) {
-                            console.error('Failed to uninstall mod:', err);
-                        }
-                    }
-                });
+                    });
+                }
 
                 listEl.appendChild(el);
             }
-        } catch (err) {
-            console.error('Failed to fetch community mods:', err);
-            listEl.innerHTML = `<div class="mods-container-empty"><h2>Aucun mod communauté disponible</h2></div>`;
+        };
+
+        // Build the category filter chips only when the data actually carries categories.
+        if (filtersEl) {
+            filtersEl.innerHTML = '';
+            if (categories.length) {
+                const makeChip = (value, label) => {
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'community-filter-chip' + (value === activeCategory ? ' active' : '');
+                    chip.textContent = label;
+                    chip.addEventListener('click', () => {
+                        activeCategory = value;
+                        filtersEl.querySelectorAll('.community-filter-chip').forEach(c => c.classList.remove('active'));
+                        chip.classList.add('active');
+                        render();
+                    });
+                    return chip;
+                };
+                filtersEl.appendChild(makeChip('all', t('community_all_categories')));
+                categories.forEach(cat => filtersEl.appendChild(makeChip(cat, cat)));
+            }
         }
+
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.oninput = () => {
+                searchTerm = searchInput.value.trim();
+                render();
+            };
+        }
+
+        if (toolbarEl) toolbarEl.style.display = '';
+        render();
+    }
+
+    _escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 }
 export default Settings;

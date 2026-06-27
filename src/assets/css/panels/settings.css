@@ -1104,3 +1104,144 @@ input:checked+.slider:before {
     cursor: not-allowed;
     transform: none !important;
 }
+
+/* Community mods browser — toolbar (search + filters) */
+.community-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.community-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.community-search-icon {
+    position: absolute;
+    left: 14px;
+    font-size: 14px;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.community-search-input {
+    width: 100%;
+    padding: 10px 14px 10px 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.25);
+    color: rgba(255, 255, 255, 0.9);
+    font: 400 14px/1.4 'Poppins', sans-serif;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.community-search-input:focus {
+    border-color: var(--accent-color, #00bd7a);
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.community-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.community-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.community-filters:empty {
+    display: none;
+}
+
+.community-filter-chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.7);
+    font: 500 12px/1 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.community-filter-chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.community-filter-chip.active {
+    background: var(--accent-color-subtle, rgba(0, 189, 122, 0.2));
+    border-color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, #00bd7a);
+}
+
+/* Community mod card extras */
+.community-badge {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font: 500 11px/1.4 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.community-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+    font: 400 12px/1 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.community-meta-version {
+    color: var(--accent-color, #00bd7a);
+    font-weight: 500;
+}
+
+.community-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: stretch;
+}
+
+.community-link-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font: 600 12px/1 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.community-link-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Loading state */
+.community-loading {
+    gap: 12px;
+}
+
+.community-spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-top-color: var(--accent-color, #00bd7a);
+    animation: community-spin 0.8s linear infinite;
+}
+
+@keyframes community-spin {
+    to { transform: rotate(360deg); }
+}
