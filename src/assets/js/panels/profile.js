@@ -26,9 +26,138 @@ class Profile extends BasePanel {
         await this.loadPlayerHeader();
         await Promise.allSettled([
             this.loadLeaderboard(),
+            this.loadSeasons(),
             this.loadFactions(),
             this.loadAchievements(),
         ]);
+    }
+
+    // ----- Seasonal leaderboards -----
+    // Fetches utils/seasons, renders the season banner (with a live countdown)
+    // above the leaderboard and the « Panthéon » card below it. Fully
+    // null/[]-defensive: no current season → banner hidden (plain leaderboard,
+    // backward compatible) ; no past seasons → Panthéon hidden.
+    async loadSeasons() {
+        try {
+            const data = await ApiClient.getSeasons();
+            this._renderSeasons(data || {});
+        } catch (err) {
+            console.warn('[Profile] seasons failed:', err);
+            // Leave the banner/hall hidden so the plain leaderboard still shows.
+            this._renderSeasons({});
+        }
+        this._startSeasonPolling();
+    }
+
+    _renderSeasons(data) {
+        const current = data && typeof data === 'object' ? data.current : null;
+        const past = Array.isArray(data?.past) ? data.past : [];
+
+        this._currentSeason = (current && typeof current === 'object') ? current : null;
+        this._renderSeasonBanner();
+
+        const hall = document.getElementById('profile-season-hall');
+        if (hall) {
+            if (!past.length) {
+                hall.hidden = true;
+                hall.innerHTML = '';
+            } else {
+                hall.hidden = false;
+                hall.innerHTML = this._seasonHallHtml(past);
+            }
+        }
+    }
+
+    _renderSeasonBanner() {
+        const banner = document.getElementById('profile-season-banner');
+        if (!banner) return;
+        const s = this._currentSeason;
+        if (!s) {
+            banner.hidden = true;
+            banner.innerHTML = '';
+            return;
+        }
+        banner.hidden = false;
+        banner.innerHTML = `
+            <div class="profile-season-top">
+                <span class="profile-season-name">${this._escape(s.name || '')}</span>
+                <span class="profile-season-pill"><span class="profile-season-pill-dot"></span>${this._escape(t('season_live') || 'En cours')}</span>
+            </div>
+            <div class="profile-season-countdown" id="profile-season-countdown"></div>`;
+        this._updateSeasonCountdown();
+    }
+
+    // Builds the "12j 06h 41m" string until endsAt and writes it into the
+    // countdown node. Called once on render then every second by the shared
+    // 1s ticker (_lbTickTimer) — no dedicated timer, no leak.
+    _updateSeasonCountdown() {
+        const el = document.getElementById('profile-season-countdown');
+        const s = this._currentSeason;
+        if (!el || !s) return;
+        const end = Number(s.endsAt);
+        const tmpl = t('season_ends_in') || 'Se termine dans {d}';
+        if (!Number.isFinite(end)) {
+            el.textContent = tmpl.replace('{d}', '—');
+            return;
+        }
+        let diff = Math.max(0, Math.floor((end - Date.now()) / 1000));
+        const days = Math.floor(diff / 86400); diff -= days * 86400;
+        const hours = Math.floor(diff / 3600); diff -= hours * 3600;
+        const mins = Math.floor(diff / 60);
+        const pad = n => String(n).padStart(2, '0');
+        const human = `${days}j ${pad(hours)}h ${pad(mins)}m`;
+        el.innerHTML = tmpl.replace('{d}', `<strong>${this._escape(human)}</strong>`);
+    }
+
+    _seasonHallHtml(past) {
+        const title = `<div class="profile-season-hall-title">🏛️ ${this._escape(t('season_hall_of_fame') || 'Panthéon')}</div>`;
+        // Newest first (by endedAt when available).
+        const sorted = [...past].sort((a, b) => (Number(b?.endedAt) || 0) - (Number(a?.endedAt) || 0));
+        const rows = sorted.map(p => {
+            const name = this._escape(p?.name || '');
+            const endedDate = Number(p?.endedAt);
+            const dateStr = Number.isFinite(endedDate)
+                ? new Date(endedDate).toLocaleDateString()
+                : '';
+            const w = p?.winner || {};
+            let winnerHtml = '';
+            if (w && (w.name != null)) {
+                const fac = w.faction ? ` <span class="profile-season-winner-faction">[${this._escape(w.faction)}]</span>` : '';
+                const score = w.score != null ? ` <span class="profile-season-winner-score">· ${this._escape(w.score)}</span>` : '';
+                winnerHtml = `<div class="profile-season-winner">🏆 ${this._escape(t('season_winner') || 'Vainqueur')} : ${this._escape(w.name)}${fac}${score}</div>`;
+            }
+            const reward = p?.reward
+                ? `<div class="profile-season-reward">🎁 ${this._escape(t('season_reward') || 'Récompense')} : ${this._escape(p.reward)}</div>`
+                : '';
+            return `<div class="profile-season-past">
+                <div class="profile-season-past-head">
+                    <span class="profile-season-past-name">${name}</span>
+                    ${dateStr ? `<span class="profile-season-past-date">${this._escape(dateStr)}</span>` : ''}
+                </div>
+                ${winnerHtml}
+                ${reward}
+            </div>`;
+        }).join('');
+        return title + rows;
+    }
+
+    // Poll utils/seasons every 60s while the panel is active. Reuses the panel
+    // visibility lifecycle; cleared in _stopLiveLeaderboard / _destroy.
+    _startSeasonPolling() {
+        if (this._seasonPollTimer) return;
+        if (!this._panelActive()) return;
+        this._seasonPollTimer = setInterval(() => this._pollSeasons(), 60000);
+    }
+
+    async _pollSeasons() {
+        if (!this._panelActive()) return;
+        try {
+            const data = await ApiClient.getSeasons();
+            if (!this._panelActive()) return;
+            this._renderSeasons(data || {});
+        } catch (err) {
+            console.warn('[Profile] season poll failed:', err);
+        }
     }
 
     async loadAchievements() {
@@ -293,12 +422,20 @@ class Profile extends BasePanel {
         if (!this._panelActive()) return;
 
         this._lbPollTimer = setInterval(() => this._pollLeaderboard(), 30000);
-        this._lbTickTimer = setInterval(() => this._updateLiveLabel(), 1000);
+        this._lbTickTimer = setInterval(() => this._tick(), 1000);
+    }
+
+    // Shared 1s ticker: refreshes the "updated Xs ago" label and the season
+    // countdown together (one timer, cleared with the leaderboard timers).
+    _tick() {
+        this._updateLiveLabel();
+        this._updateSeasonCountdown();
     }
 
     _stopLiveLeaderboard() {
         if (this._lbPollTimer) { clearInterval(this._lbPollTimer); this._lbPollTimer = null; }
         if (this._lbTickTimer) { clearInterval(this._lbTickTimer); this._lbTickTimer = null; }
+        if (this._seasonPollTimer) { clearInterval(this._seasonPollTimer); this._seasonPollTimer = null; }
     }
 
     _panelActive() {
@@ -316,8 +453,12 @@ class Profile extends BasePanel {
             if (this._panelActive()) {
                 if (!this._lbPollTimer) {
                     this._lbPollTimer = setInterval(() => this._pollLeaderboard(), 30000);
-                    this._lbTickTimer = setInterval(() => this._updateLiveLabel(), 1000);
+                    this._lbTickTimer = setInterval(() => this._tick(), 1000);
                     this._pollLeaderboard();
+                }
+                if (!this._seasonPollTimer) {
+                    this._seasonPollTimer = setInterval(() => this._pollSeasons(), 60000);
+                    this._pollSeasons();
                 }
             } else {
                 this._stopLiveLeaderboard();

@@ -56,6 +56,7 @@ export const ApiClient = {
     getServersStatus: ()       => _get('utils/servers-status'),
     getLeaderboards:  ()       => _get('utils/leaderboards'),
     getLeaderboardsConditional: (etag) => _getConditional('utils/leaderboards', etag),
+    getSeasons:       ()       => _get('utils/seasons'),
     getFactions:      ()       => _get('utils/factions'),
     getFiles:         ()       => _get('data'),
     postTelemetry:    (body)   => _post('utils/telemetry', body).catch(() => null),
