@@ -169,14 +169,14 @@ export function evaluate(achievement, counters, serverCodes) {
         case 'first_launch':
             return { unlocked: c.first_launch === true, progress: null, target: null };
         case 'launch_count':
-            return { unlocked: c.launch_count >= target, progress: Math.min(c.launch_count, target), target };
+            return { unlocked: target > 0 && c.launch_count >= target, progress: Math.min(c.launch_count, target), target };
         case 'playtime_hours': {
             const hours = c.playtime_minutes / 60;
-            return { unlocked: hours >= target, progress: Math.min(hours, target), target };
+            return { unlocked: target > 0 && hours >= target, progress: Math.min(hours, target), target };
         }
         case 'instances_tried': {
             const tried = c.instances_tried.length;
-            return { unlocked: tried >= target, progress: Math.min(tried, target), target };
+            return { unlocked: target > 0 && tried >= target, progress: Math.min(tried, target), target };
         }
         case 'manual':
         default:
@@ -213,7 +213,11 @@ export function evaluateCatalog(catalog, counters, serverProgress) {
         }
     }
 
-    saveUnlockedCodes(nowUnlocked);
+    // Persist the monotonic union of previously-saved and currently-unlocked
+    // codes. fetchServerProgress returns [] on any network blip, so saving only
+    // the current run would drop server-unlocked codes and re-fire their toast
+    // on the next successful fetch.
+    saveUnlockedCodes([...new Set([...prev, ...nowUnlocked])]);
     return { items, totalPoints, newlyUnlocked };
 }
 

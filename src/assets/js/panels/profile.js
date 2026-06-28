@@ -337,6 +337,9 @@ class Profile extends BasePanel {
                 this._updateLiveLabel();
                 return;
             }
+            // The user may have left the profile panel during the await — don't
+            // write stale rows into a now-hidden panel.
+            if (!this._panelActive()) return;
             this._renderLeaderboard(result.data);
         } catch (err) {
             console.warn('[Profile] live leaderboard poll failed:', err);
