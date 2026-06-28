@@ -4,7 +4,7 @@ import { database, changePanel, t } from '../utils.js';
 import { getAzAuthUrl } from '../utils/config.js';
 import BasePanel from '../utils/BasePanel.js';
 import ApiClient from '../utils/ApiClient.js';
-import { fetchCatalog, getCounters, evaluateCatalog } from '../utils/achievements.js';
+import { fetchCatalog, getCounters, evaluateCatalog, fetchServerProgress } from '../utils/achievements.js';
 
 class Profile extends BasePanel {
     static id = "profile";
@@ -43,7 +43,10 @@ class Profile extends BasePanel {
             }
 
             const counters = getCounters();
-            const { items, totalPoints, newlyUnlocked } = evaluateCatalog(catalog, counters);
+            // Merge in server-driven unlocks (faction/GeoCoin/manual milestones).
+            // Skipped cleanly when the player isn't logged in (no pseudo).
+            const serverProgress = await fetchServerProgress(this.playerName);
+            const { items, totalPoints, newlyUnlocked } = evaluateCatalog(catalog, counters, serverProgress);
 
             this._setAchievementPoints(totalPoints);
             el.innerHTML = `<div class="achievements-grid">${items.map(it => this._achievementCard(it)).join('')}</div>`;
@@ -100,15 +103,20 @@ class Profile extends BasePanel {
                 </div>`;
         }
 
-        const manualNote = it.manual
+        const manualNote = (it.manual && !it.unlocked)
             ? `<div class="achievement-manual-note">${this._escape(t('profile_achievement_manual') || 'À débloquer sur le site')}</div>`
+            : '';
+
+        // Subtle "serveur" tag on achievements unlocked in-game via the panel.
+        const serverTag = it.server
+            ? `<span class="achievement-server-tag">${this._escape(t('profile_achievement_server') || 'serveur')}</span>`
             : '';
 
         return `
             <div class="${cls}" title="${desc}">
                 <div class="achievement-icon">${this._achievementIcon(a.icon)}</div>
                 <div class="achievement-body">
-                    <div class="achievement-name">${name}</div>
+                    <div class="achievement-name">${name}${serverTag}</div>
                     ${desc ? `<div class="achievement-desc">${desc}</div>` : ''}
                     ${progressHtml}
                     ${manualNote}

@@ -123,14 +123,47 @@ export async function fetchCatalog() {
 }
 
 /**
- * Evaluate one catalog achievement against the local counters.
- * Returns { unlocked, progress, target } — progress/target are null for
- * non-threshold types.
+ * Fetch the server-side achievement progress for a given player: an array of
+ * achievement codes the panel considers unlocked in-game (e.g. faction or
+ * GeoCoin milestones, plus every `manual` achievement). Defensive: returns []
+ * on any failure (missing pseudo, network error, non-200, bad JSON).
  */
-export function evaluate(achievement, counters) {
+export async function fetchServerProgress(pseudo) {
+    const name = String(pseudo ?? '').trim();
+    if (!name) return [];
+    try {
+        const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+        const url = `${base}utils/achievements/progress?player=${encodeURIComponent(name)}`;
+        const res = await fetch(withInstance(url), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data.map(String) : [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Evaluate one catalog achievement against the local counters and the set of
+ * server-unlocked codes. An achievement present in `serverCodes` is unlocked
+ * (and flagged `server: true`) regardless of local counters — this is the only
+ * way `manual` achievements ever unlock. Returns { unlocked, progress, target }
+ * — progress/target are null for non-threshold types.
+ */
+export function evaluate(achievement, counters, serverCodes) {
     const c = counters || getCounters();
     const type = achievement && achievement.condition_type;
     const target = Number(achievement && achievement.condition_value) || 0;
+    const codes = serverCodes instanceof Set ? serverCodes : new Set(serverCodes || []);
+    const code = achievement && achievement.code;
+
+    // Server-driven unlock takes precedence over any local counter.
+    if (code && codes.has(code)) {
+        return { unlocked: true, progress: null, target: null, server: true };
+    }
 
     switch (type) {
         case 'first_launch':
@@ -147,20 +180,22 @@ export function evaluate(achievement, counters) {
         }
         case 'manual':
         default:
-            // Display-only: always shown locked locally (unlocked on the website).
+            // Server-only: shown locked until the panel reports it unlocked.
             return { unlocked: false, progress: null, target: null, manual: true };
     }
 }
 
 /**
- * Evaluate the whole catalog. Returns:
- *   { items: [{ achievement, unlocked, progress, target, manual }],
+ * Evaluate the whole catalog. Merges local-counter unlocks with the set of
+ * server-unlocked codes (union). Returns:
+ *   { items: [{ achievement, unlocked, progress, target, manual, server }],
  *     totalPoints, newlyUnlocked: [achievement,...] }
  * Persists the unlocked set and reports codes unlocked since last evaluation
- * (manual achievements are never auto-detected as "new").
+ * (server unlocks fire the unlock toast just like local ones).
  */
-export function evaluateCatalog(catalog, counters) {
+export function evaluateCatalog(catalog, counters, serverProgress) {
     const c = counters || getCounters();
+    const codes = serverProgress instanceof Set ? serverProgress : new Set(serverProgress || []);
     const prev = new Set(getUnlockedCodes());
     const items = [];
     const nowUnlocked = [];
@@ -169,7 +204,7 @@ export function evaluateCatalog(catalog, counters) {
 
     for (const a of (Array.isArray(catalog) ? catalog : [])) {
         if (!a || !a.code) continue;
-        const ev = evaluate(a, c);
+        const ev = evaluate(a, c, codes);
         items.push({ achievement: a, ...ev });
         if (ev.unlocked) {
             nowUnlocked.push(a.code);
@@ -188,6 +223,7 @@ export default {
     addPlaytime,
     getUnlockedCodes,
     fetchCatalog,
+    fetchServerProgress,
     evaluate,
     evaluateCatalog,
 };
