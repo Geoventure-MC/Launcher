@@ -2,7 +2,7 @@
 
 > Fichier de mémoire pour Claude Code. À placer à la racine du repo `panel`
 > (et idéalement une copie dans `installer` et `launcher`).
-> Dernière mise à jour : 2026-06-18.
+> Dernière mise à jour : 2026-06-28.
 
 ## 🎯 Vue d'ensemble
 
@@ -26,6 +26,7 @@ Le launcher lit le panel via ces routes (définies dans `panel/routes/web.php`) 
 - `GET /utils/community-mods` → `api/CommunityModController@getCommunityMods` : mods communauté approuvés
 - `GET /utils/leaderboards` → `api/LeaderboardController@getLeaderboards` : classement joueurs
 - `GET /utils/factions` → `api/FactionController@getFactions` : liste des factions
+- `GET /utils/achievements` → `api/AchievementController@getAchievements` : catalogue des succès (`code`, `name`, `description`, `icon`, `points`, `category`, `condition_type`, `condition_value`). `condition_type ∈ first_launch|launch_count|playtime_hours|instances_tried|manual`.
 - `POST /utils/telemetry` → `api/TelemetryController@store` : télémétrie opt-in (CSRF exempté)
 - `GET /data` → `api/FileController@getFiles` : liste des fichiers du modpack (hash/size/url)
 - `GET /api-schema.json` → version du schéma API
@@ -45,6 +46,17 @@ ajouté à tous les appels panel via `utils/instance.js → withInstance()` :
   ET par les pills serveur du home). `utils/gamedir.js` isole le dossier de jeu
   par instance (`instances/<slug>`), l'instance par défaut (1ʳᵉ de `pkg.servers`)
   gardant le chemin legacy. Sans instance → comportement global rétrocompatible.
+
+## 🏆 Succès & Leaderboards live (launcher)
+
+- **Succès in-app** : compteurs locaux (`launch_count`, `playtime_minutes`,
+  `instances_tried`, `first_launch`) stockés dans `localStorage` via
+  `utils/achievements.js`, fusionnés avec le catalogue serveur de
+  `/utils/achievements`. Badges rendus dans le panneau profil avec toasts de
+  déblocage.
+- **Leaderboards live** : `profile.js` poll `utils/leaderboards` toutes les 30s
+  tant que le panneau profil est actif, avec `ETag`/`If-None-Match`
+  (`304` → pas de re-render) et animations de changement de rang.
 
 ## ✅ Feature LIVRÉE : Annonces / Notifications
 
