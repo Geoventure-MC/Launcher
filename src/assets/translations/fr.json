@@ -31,7 +31,7 @@
     "news_follow_here": "Vous pourrez suivre ici toutes les news relatives au serveur.",
     "error_contacting_server": "Erreur. Impossible de contacter le serveur des news. Merci de vérifier votre configuration.",
     "server_unavailable": "Serveur indisponible",
-    "launch_error": "Erreur de lancement : impossible de contacter les serveurs Mojang. Vérifiez votre connexion, pare-feu ou antivirus, puis réessayez.",
+    "launch_error": "Erreur de lancement : impossible de contacter les serveurs. Vérifiez votre connexion, pare-feu ou antivirus, puis relancez — le téléchargement reprendra où il s'était arrêté.",
     "online": "En ligne",
     "patch_in_progress": "Patch en cours...",
     "starting": "Démarrage en cours...",
@@ -44,7 +44,7 @@
     "total_ram": "RAM Totale",
     "free_ram": "RAM Disponible",
     "privacy_title": "Confidentialité",
-    "telemetry_consent": "Partager des statistiques anonymes d'utilisation",
+    "telemetry_consent": "Partager des statistiques anonymes pour aider l'équipe",
     "close_launcher": "Fermer le launcher après le démarrage du jeu.",
     "close_all": "Fermer le jeu si le launcher est fermé.",
     "open_launcher": "Garder le launcher ouvert après le démarrage du jeu.",
@@ -139,7 +139,6 @@
     "season_hall_of_fame": "Panthéon",
     "season_winner": "Vainqueur",
     "season_reward": "Récompense",
-    "telemetry_consent": "Partager des statistiques anonymes pour aider l'équipe",
     "telemetry_description": "Ces données incluent votre système d'exploitation, la version du Launcher et le serveur joué. Aucune donnée personnelle n'est collectée.",
     "changelog_title": "Nouveautés",
     "changelog_view_github": "Voir sur GitHub",
@@ -161,5 +160,8 @@
     "news_badge": "ACTUALITÉ",
     "shortcuts_title": "RACCOURCIS",
     "discover_title": "À DÉCOUVRIR",
-    "back_to_instances": "Changer de serveur"
+    "back_to_instances": "Changer de serveur",
+    "upcoming_events": "Événements à venir",
+    "event_in": "dans {t}",
+    "offline_mode": "Mode hors-ligne — config du {date}"
 }

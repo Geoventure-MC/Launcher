@@ -1509,3 +1509,50 @@ body::-webkit-scrollbar {
 .notif-close:hover {
     color: #fff;
 }
+/* ─── Upcoming Events widget ─────────────────────────────────────────────── */
+
+.upcoming-events {
+    padding: 14px 16px;
+}
+
+.upcoming-events-title {
+    font: 700 10px/1 'Poppins', sans-serif;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.upcoming-event-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.upcoming-event-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.upcoming-event-row .ue-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.upcoming-event-row .ue-title {
+    flex: 1;
+    font: 600 12px/1.3 'Poppins', sans-serif;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upcoming-event-row .ue-count {
+    font: 700 11px/1 'Poppins', sans-serif;
+    color: var(--accent-color);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}

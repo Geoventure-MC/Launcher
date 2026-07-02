@@ -13,6 +13,7 @@ import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
 import { recordLaunch, addPlaytime } from '../utils/achievements.js';
+import { isOfflineMode, offlineCacheDate } from '../utils/config.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -92,6 +93,7 @@ class Home {
         this.initOfflineBadge();
         this.initLauncherContent();
         this.initInstanceBack();
+        this.initUpcomingEvents();
 
         sendEvent('launch');
     }
@@ -1150,13 +1152,84 @@ class Home {
         if (!badge) return;
 
         const update = () => {
-            const online = navigator.onLine;
-            badge.style.display = online ? 'none' : 'block';
+            // Deux cas distincts : pas de réseau du tout (navigator.onLine),
+            // ou réseau OK mais panel injoignable (config servie depuis le cache).
+            if (!navigator.onLine) {
+                badge.textContent = t('offline') || 'Hors ligne';
+                badge.style.display = 'block';
+                return;
+            }
+            if (isOfflineMode()) {
+                const since = offlineCacheDate();
+                const date = since ? new Date(since).toLocaleString() : '';
+                badge.textContent = (t('offline_mode') || 'Mode hors-ligne — config du {date}').replace('{date}', date);
+                badge.style.background = 'rgba(251,146,60,0.92)';
+                badge.style.display = 'block';
+                return;
+            }
+            badge.style.display = 'none';
         };
 
         update();
         window.addEventListener('online', update);
         window.addEventListener('offline', update);
+    }
+
+    // Prochains événements programmés (panel → /utils/scheduled-events)
+    async initUpcomingEvents() {
+        const container = document.getElementById('upcoming-events');
+        if (!container) return;
+
+        const icons = { airdrop: '🪂', invasion: '⚔️', dungeon_raid: '🏰', convoy_ambush: '🛡️', bonus_xp: '✨', announce: '📢' };
+
+        const fmtIn = (ms) => {
+            let s = Math.max(0, Math.floor((ms - Date.now()) / 1000));
+            const d = Math.floor(s / 86400); s %= 86400;
+            const h = Math.floor(s / 3600); s %= 3600;
+            const m = Math.floor(s / 60);
+            if (d > 0) return `${d}j ${h}h`;
+            if (h > 0) return `${h}h ${m}m`;
+            return `${m}m`;
+        };
+
+        const render = (events) => {
+            if (!Array.isArray(events)) events = [];
+            const upcoming = events
+                .filter(e => e && typeof e.scheduledAt === 'number' && e.scheduledAt > Date.now() - 60000)
+                .slice(0, 3);
+            if (!upcoming.length) {
+                container.style.display = 'none';
+                return;
+            }
+            container.innerHTML = `<div class="upcoming-events-title">${this._escapeHtml(t('upcoming_events') || 'Événements à venir')}</div>`
+                + upcoming.map(e => `
+                    <div class="upcoming-event-row" data-at="${Number(e.scheduledAt)}">
+                        <span class="ue-icon">${icons[e.type] || '📅'}</span>
+                        <span class="ue-title">${this._escapeHtml(e.title || '')}</span>
+                        <span class="ue-count">${this._escapeHtml((t('event_in') || 'dans {t}').replace('{t}', fmtIn(e.scheduledAt)))}</span>
+                    </div>`).join('');
+            container.style.display = 'block';
+        };
+
+        const refresh = async () => {
+            if (!document.querySelector('.panel.home')?.classList.contains('active') && this._eventsLoadedOnce) return;
+            try {
+                const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+                const res = await fetch(withInstance(`${base}utils/scheduled-events`), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    signal: AbortSignal.timeout(4000),
+                });
+                if (!res.ok) return;
+                this._upcomingEvents = await res.json();
+                this._eventsLoadedOnce = true;
+                render(this._upcomingEvents);
+            } catch { /* non bloquant : widget masqué */ }
+        };
+
+        await refresh();
+        // Compte à rebours re-rendu toutes les 30 s, données rafraîchies toutes les 5 min.
+        this._eventsTickTimer = setInterval(() => { if (this._upcomingEvents) render(this._upcomingEvents); }, 30000);
+        this._eventsRefreshTimer = setInterval(refresh, 300000);
     }
 
     initInstanceBack() {

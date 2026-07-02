@@ -28,6 +28,38 @@ export function getAzAuthUrl(config) {
     return az.endsWith('/') ? az : `${az}/`;
 }
 
+// Mode hors-ligne : la dernière config valide est mise en cache par instance ;
+// si le panel est injoignable, on la resssert au lieu de bloquer le launcher.
+const CONFIG_CACHE_PREFIX = 'geoventure_config_cache_';
+let offlineMode = false;
+let offlineSince = null;
+
+export function isOfflineMode() { return offlineMode; }
+export function offlineCacheDate() { return offlineSince; }
+
+function configCacheKey() {
+    const slug = (typeof localStorage !== 'undefined' && localStorage.getItem('geoventure_selected_instance')) || 'default';
+    return CONFIG_CACHE_PREFIX + slug;
+}
+
+function saveConfigCache(config) {
+    try {
+        localStorage.setItem(configCacheKey(), JSON.stringify({ savedAt: Date.now(), config }));
+    } catch { /* stockage plein/indisponible : non bloquant */ }
+}
+
+function loadConfigCache() {
+    try {
+        const raw = localStorage.getItem(configCacheKey());
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.config !== 'object' || parsed.config === null) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
 class Config {
     async GetConfig() {
         try {
@@ -35,9 +67,20 @@ class Config {
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status} sur ${getConfigUrl()}`);
             }
-            return await response.json();
+            const config = await response.json();
+            offlineMode = false;
+            offlineSince = null;
+            saveConfigCache(config);
+            return config;
         } catch (error) {
             console.error("Failed to fetch config:", error);
+            const cached = loadConfigCache();
+            if (cached) {
+                console.warn('Panel injoignable : utilisation de la config en cache (mode hors-ligne).');
+                offlineMode = true;
+                offlineSince = cached.savedAt || null;
+                return cached.config;
+            }
             throw error;
         }
     }

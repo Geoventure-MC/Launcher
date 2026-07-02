@@ -31,7 +31,7 @@
     "news_follow_here": "You can follow all the server news here.",
     "error_contacting_server": "Error. Unable to contact the news server. Please check your configuration.",
     "server_unavailable": "Server unavailable",
-    "launch_error": "Launch failed: unable to reach Mojang servers. Check your connection, firewall or antivirus, then try again.",
+    "launch_error": "Launch failed: unable to reach the servers. Check your connection, firewall or antivirus, then relaunch — the download will resume where it left off.",
     "online": "Online",
     "patch_in_progress": "Patch in progress...",
     "starting": "Starting...",
@@ -44,7 +44,7 @@
     "total_ram": "Total RAM",
     "free_ram": "Free RAM",
     "privacy_title": "Privacy",
-    "telemetry_consent": "Share anonymous usage statistics",
+    "telemetry_consent": "Share anonymous statistics to help the team",
     "close_launcher": "Close the launcher after the game starts.",
     "close_all": "Close the game if the launcher is closed.",
     "open_launcher": "Keep the launcher open after the game starts.",
@@ -139,7 +139,6 @@
     "season_hall_of_fame": "Hall of Fame",
     "season_winner": "Winner",
     "season_reward": "Reward",
-    "telemetry_consent": "Share anonymous statistics to help the team",
     "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected.",
     "changelog_title": "What's new",
     "changelog_view_github": "View on GitHub",
@@ -161,5 +160,8 @@
     "news_badge": "NEWS",
     "shortcuts_title": "SHORTCUTS",
     "discover_title": "DISCOVER",
-    "back_to_instances": "Switch server"
+    "back_to_instances": "Switch server",
+    "upcoming_events": "Upcoming events",
+    "event_in": "in {t}",
+    "offline_mode": "Offline mode — config from {date}"
 }
