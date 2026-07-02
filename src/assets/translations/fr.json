@@ -139,6 +139,8 @@
     "season_hall_of_fame": "Panthéon",
     "season_winner": "Vainqueur",
     "season_reward": "Récompense",
+    "season_standings": "Classement de la saison",
+    "season_points_suffix": "pts",
     "telemetry_description": "Ces données incluent votre système d'exploitation, la version du Launcher et le serveur joué. Aucune donnée personnelle n'est collectée.",
     "changelog_title": "Nouveautés",
     "changelog_view_github": "Voir sur GitHub",

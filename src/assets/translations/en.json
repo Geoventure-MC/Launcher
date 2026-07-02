@@ -139,6 +139,8 @@
     "season_hall_of_fame": "Hall of Fame",
     "season_winner": "Winner",
     "season_reward": "Reward",
+    "season_standings": "Season standings",
+    "season_points_suffix": "pts",
     "telemetry_description": "Data includes your OS, Launcher version, and server played. No personal data is collected.",
     "changelog_title": "What's new",
     "changelog_view_github": "View on GitHub",

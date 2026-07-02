@@ -55,6 +55,7 @@ class Profile extends BasePanel {
 
         this._currentSeason = (current && typeof current === 'object') ? current : null;
         this._renderSeasonBanner();
+        this._renderSeasonStandings(data?.standings);
 
         const hall = document.getElementById('profile-season-hall');
         if (hall) {
@@ -85,6 +86,33 @@ class Profile extends BasePanel {
             </div>
             <div class="profile-season-countdown" id="profile-season-countdown"></div>`;
         this._updateSeasonCountdown();
+    }
+
+    // Compact « Classement de la saison » block right under the season banner.
+    // `standings` = [{ name, points }, ...] (top 10, desc) — optional in the
+    // utils/seasons payload. Absent/empty/not-array → block hidden entirely
+    // (fully backward compatible). Refreshed by the same 60s seasons poll.
+    _renderSeasonStandings(standings) {
+        const el = document.getElementById('profile-season-standings');
+        if (!el) return;
+        const list = Array.isArray(standings)
+            ? standings.filter(s => s && typeof s === 'object' && s.name != null)
+            : [];
+        if (!list.length) {
+            el.hidden = true;
+            el.innerHTML = '';
+            return;
+        }
+        const title = `<div class="profile-season-standings-title">🏁 ${this._escape(t('season_standings') || 'Classement de la saison')}</div>`;
+        const ptsSuffix = this._escape(t('season_points_suffix') || 'pts');
+        const rows = list.map((s, i) => {
+            const rank = i + 1;
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+            const pts = s.points != null ? `<span class="profile-coins">${this._escape(s.points)} ${ptsSuffix}</span>` : '';
+            return `<div class="profile-row"><span>${medal} ${this._escape(s.name)}</span>${pts}</div>`;
+        }).join('');
+        el.hidden = false;
+        el.innerHTML = title + rows;
     }
 
     // Builds the "12j 06h 41m" string until endsAt and writes it into the

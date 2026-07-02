@@ -322,6 +322,31 @@
     font-weight: 700;
 }
 
+/* ----- Classement de la saison (standings) ----- */
+.profile-season-standings {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(74, 222, 128, 0.22);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+
+.profile-season-standings[hidden] {
+    display: none;
+}
+
+.profile-season-standings-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #4ade80;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* ----- Panthéon (hall of fame) ----- */
 .profile-season-hall {
     margin-top: 14px;
