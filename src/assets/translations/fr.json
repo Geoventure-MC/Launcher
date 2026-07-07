@@ -165,5 +165,7 @@
     "back_to_instances": "Changer de serveur",
     "upcoming_events": "Événements à venir",
     "event_in": "dans {t}",
-    "offline_mode": "Mode hors-ligne — config du {date}"
+    "offline_mode": "Mode hors-ligne — config du {date}",
+    "whatsnew_title": "Nouveautés",
+    "whatsnew_close": "Fermer"
 }

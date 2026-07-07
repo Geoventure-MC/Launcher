@@ -165,5 +165,7 @@
     "back_to_instances": "Switch server",
     "upcoming_events": "Upcoming events",
     "event_in": "in {t}",
-    "offline_mode": "Offline mode — config from {date}"
+    "offline_mode": "Offline mode — config from {date}",
+    "whatsnew_title": "What's new",
+    "whatsnew_close": "Close"
 }

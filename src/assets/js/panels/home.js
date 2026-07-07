@@ -94,6 +94,7 @@ class Home {
         this.initLauncherContent();
         this.initInstanceBack();
         this.initUpcomingEvents();
+        this.initWhatsNew();
 
         sendEvent('launch');
     }
@@ -743,6 +744,77 @@ class Home {
         } catch {
             // Non-blocking
         }
+    }
+
+    // « Nouveautés » : au démarrage, si le panel expose une entrée de changelog
+    // plus récente que la dernière vue (localStorage), on affiche une modale.
+    // Entièrement non bloquant : toute erreur réseau/JSON est silencieuse.
+    async initWhatsNew() {
+        const overlay = document.getElementById('whatsnew-modal-overlay');
+        if (!overlay) return;
+
+        try {
+            const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+            const res = await fetch(withInstance(`${base}utils/changelog`), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                signal: AbortSignal.timeout(5000),
+            });
+            if (!res.ok) return;
+            const entries = await res.json();
+            if (!Array.isArray(entries) || !entries.length) return;
+
+            // L'entrée la plus récente = id maximal (le panel trie déjà desc,
+            // mais on reste défensif sur l'ordre).
+            const latest = entries.reduce((a, b) => (Number(b.id) > Number(a.id) ? b : a));
+            const latestId = Number(latest.id);
+            if (!Number.isFinite(latestId)) return;
+
+            const lastSeen = Number(localStorage.getItem('geoventure_last_changelog_seen') || 0);
+            if (latestId <= lastSeen) return;
+
+            this.showWhatsNewModal(latest, latestId);
+        } catch {
+            // Non-blocking
+        }
+    }
+
+    showWhatsNewModal(entry, latestId) {
+        const overlay = document.getElementById('whatsnew-modal-overlay');
+        const title = document.getElementById('whatsnew-modal-title');
+        const version = document.getElementById('whatsnew-modal-version');
+        const body = document.getElementById('whatsnew-modal-body');
+        const closeBtn = document.getElementById('whatsnew-close-btn');
+        if (!overlay || !title || !body || !closeBtn) return;
+
+        title.textContent = `${t('whatsnew_title') !== 'whatsnew_title' ? t('whatsnew_title') : 'Nouveautés'} — ${entry.title || ''}`;
+        if (version) {
+            if (entry.version) {
+                version.textContent = `v${entry.version}`;
+                version.style.display = '';
+            } else {
+                version.style.display = 'none';
+            }
+        }
+
+        const safeImg = entry.imageUrl ? safeHttpUrl(entry.imageUrl) : null;
+        // Le body est du texte brut : échappé puis rendu avec les sauts de
+        // ligne préservés (white-space: pre-wrap côté CSS).
+        body.innerHTML = `
+            ${safeImg ? `<img class="whatsnew-image" src="${escapeHtml(safeImg)}" alt="">` : ''}
+            <div class="whatsnew-text">${escapeHtml(entry.body || '')}</div>
+        `;
+        const img = body.querySelector('.whatsnew-image');
+        if (img) img.addEventListener('error', () => img.remove());
+
+        closeBtn.textContent = t('whatsnew_close') !== 'whatsnew_close' ? t('whatsnew_close') : 'Fermer';
+        closeBtn.onclick = () => {
+            try {
+                localStorage.setItem('geoventure_last_changelog_seen', String(latestId));
+            } catch { /* stockage indisponible : non bloquant */ }
+            overlay.style.display = 'none';
+        };
+
+        overlay.style.display = 'flex';
     }
 
     _notifIcon(type) {
