@@ -55,7 +55,7 @@ class Profile extends BasePanel {
 
         this._currentSeason = (current && typeof current === 'object') ? current : null;
         this._renderSeasonBanner();
-        this._renderSeasonStandings(data?.standings);
+        this._renderSeasonStandings(current?.standings);
 
         const hall = document.getElementById('profile-season-hall');
         if (hall) {
