@@ -169,5 +169,13 @@
     "whatsnew_title": "Nouveautés",
     "whatsnew_close": "Fermer",
     "affluence_title": "Affluence (48h)",
-    "affluence_peak_hours": "Heures de pointe : {h}"
+    "affluence_peak_hours": "Heures de pointe : {h}",
+    "repair_title": "Réparer l'installation",
+    "repair_info": "Purge les caches du launcher et vérifie les fichiers du modpack de l'instance active. Les fichiers corrompus sont supprimés puis retéléchargés au prochain lancement.",
+    "repair_btn": "Réparer",
+    "repair_confirm": "Réparer l'installation ? Les caches seront purgés et les fichiers corrompus supprimés (ils seront retéléchargés au prochain lancement).",
+    "repair_scanning": "Analyse des fichiers en cours…",
+    "repair_done": "{count} fichier(s) corrompu(s) supprimé(s), caches purgés. Ils seront retéléchargés au prochain lancement.",
+    "repair_done_clean": "Aucun fichier corrompu détecté, caches purgés.",
+    "repair_error": "Impossible de vérifier les fichiers (panel injoignable). Réessayez plus tard."
 }

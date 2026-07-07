@@ -169,5 +169,13 @@
     "whatsnew_title": "What's new",
     "whatsnew_close": "Close",
     "affluence_title": "Player activity (48h)",
-    "affluence_peak_hours": "Peak hours: {h}"
+    "affluence_peak_hours": "Peak hours: {h}",
+    "repair_title": "Repair installation",
+    "repair_info": "Clears the launcher caches and verifies the active instance's modpack files. Corrupted files are removed and re-downloaded on the next launch.",
+    "repair_btn": "Repair",
+    "repair_confirm": "Repair the installation? Caches will be cleared and corrupted files removed (they will be re-downloaded on the next launch).",
+    "repair_scanning": "Scanning files…",
+    "repair_done": "{count} corrupted file(s) removed, caches cleared. They will be re-downloaded on the next launch.",
+    "repair_done_clean": "No corrupted files found, caches cleared.",
+    "repair_error": "Unable to verify files (panel unreachable). Please try again later."
 }

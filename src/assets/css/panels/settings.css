@@ -1004,6 +1004,39 @@ input:checked+.slider:before {
     font-size: 16px;
 }
 
+.btn-advanced:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+    filter: none;
+}
+
+/* ─── Réparation 1 clic ────────────────────────────────────────────────────── */
+
+.repair-info {
+    font: 400 13px/1.5 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.55);
+    max-width: 480px;
+    margin-bottom: 14px;
+}
+
+.repair-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    font: 500 13px/1.4 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.repair-status-ok {
+    color: #4ade80;
+}
+
+.repair-status-error {
+    color: #f87171;
+}
+
 /* ─── Resolution Settings ──────────────────────────────────────────────────── */
 
 .resolution-settings {

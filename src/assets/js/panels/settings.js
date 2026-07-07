@@ -14,6 +14,7 @@ import { withInstance } from '../utils/instance.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
+const crypto = require('crypto');
 const fetch = require('node-fetch');
 const path = require('path');
 const fs = require('fs');
@@ -42,6 +43,7 @@ class Settings {
         this.headplayer();
         this.initSkinDropzone();
         this.initAdvanced();
+        this.initRepair();
         this.initCommunityMods();
     }
 
@@ -776,6 +778,119 @@ class Settings {
         checkbox.checked = isConsented();
         checkbox.addEventListener('change', () => {
             setConsent(checkbox.checked);
+        });
+    }
+
+    // ----- Réparation 1 clic -----
+    // (a) purge les caches de config localStorage, (b) vérifie les fichiers du
+    // modpack de l'instance active contre le manifeste {settings_url}data
+    // (path/size/hash sha1 — mêmes champs que ceux vérifiés au lancement par
+    // minecraft-java-core) et supprime les fichiers corrompus : ils seront
+    // re-téléchargés au prochain lancement.
+    initRepair() {
+        const btn = document.getElementById('repair-btn');
+        if (!btn) return;
+
+        const title = document.getElementById('repair-title');
+        if (title) title.textContent = `🔧 ${t('repair_title')}`;
+        const info = document.getElementById('repair-info');
+        if (info) info.textContent = t('repair_info');
+        const btnText = document.getElementById('repair-btn-text');
+        if (btnText) btnText.textContent = t('repair_btn');
+
+        btn.addEventListener('click', async () => {
+            if (!confirm(t('repair_confirm'))) return;
+
+            const status = document.getElementById('repair-status');
+            btn.disabled = true;
+            if (status) {
+                status.style.display = 'flex';
+                status.className = 'repair-status';
+                status.innerHTML = `<span class="community-spinner"></span><span>${t('repair_scanning')}</span>`;
+            }
+
+            try {
+                const report = await this.repairInstallation();
+                if (status) {
+                    status.className = 'repair-status repair-status-ok';
+                    const msg = report.deleted > 0
+                        ? t('repair_done').replace('{count}', report.deleted)
+                        : t('repair_done_clean');
+                    status.innerHTML = `<i class="fas fa-check-circle"></i><span>${this._escapeHtml(msg)}</span>`;
+                }
+            } catch (err) {
+                console.error('Repair failed:', err);
+                if (status) {
+                    status.className = 'repair-status repair-status-error';
+                    status.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>${this._escapeHtml(t('repair_error'))}</span>`;
+                }
+            }
+
+            btn.disabled = false;
+        });
+    }
+
+    async repairInstallation() {
+        // (a) Purge des caches de config (mode hors-ligne), toutes instances.
+        for (const key of Object.keys(localStorage)) {
+            if (key.startsWith('geoventure_config_cache_')) localStorage.removeItem(key);
+        }
+
+        // (b) Manifeste du modpack de l'instance active.
+        const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+        const manifestUrl = withInstance(pkg.env === 'azuriom' ? `${baseUrl}api/centralcorp/files` : `${baseUrl}data`);
+        const response = await fetch(manifestUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const manifest = await response.json();
+        if (!Array.isArray(manifest)) throw new Error('Invalid manifest');
+
+        const gameDir = this.gameDir();
+        let deleted = 0;
+
+        for (const entry of manifest) {
+            if (!entry || typeof entry.path !== 'string' || !entry.path) continue;
+
+            const filePath = path.join(gameDir, entry.path);
+            // Anti path-traversal : on reste dans le dossier de jeu.
+            if (filePath !== gameDir && !filePath.startsWith(gameDir + path.sep)) continue;
+
+            let stat;
+            try {
+                stat = fs.statSync(filePath);
+            } catch {
+                continue; // fichier absent → re-téléchargé au prochain lancement
+            }
+            if (!stat.isFile()) continue;
+
+            let corrupted = false;
+            if (entry.size != null && stat.size !== Number(entry.size)) {
+                corrupted = true;
+            } else if (entry.hash) {
+                const localHash = await this._sha1File(filePath);
+                corrupted = localHash.toLowerCase() !== String(entry.hash).toLowerCase();
+            }
+
+            if (corrupted) {
+                try {
+                    fs.unlinkSync(filePath);
+                    deleted++;
+                } catch (err) {
+                    console.error(`Failed to delete corrupted file ${filePath}:`, err);
+                }
+            }
+        }
+
+        return { deleted };
+    }
+
+    // sha1 en streaming (les .jar peuvent faire >100 MB, pas de readFileSync).
+    _sha1File(filePath) {
+        return new Promise((resolve, reject) => {
+            const hash = crypto.createHash('sha1');
+            const stream = fs.createReadStream(filePath);
+            stream.on('error', reject);
+            stream.on('data', chunk => hash.update(chunk));
+            stream.on('end', () => resolve(hash.digest('hex')));
         });
     }
 
