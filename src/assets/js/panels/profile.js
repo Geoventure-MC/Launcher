@@ -29,7 +29,140 @@ class Profile extends BasePanel {
             this.loadSeasons(),
             this.loadFactions(),
             this.loadAchievements(),
+            this.initSkin(),
         ]);
+    }
+
+    // ----- Skin 3D -----
+    // Carte « 🧍 Mon skin » : preview 3D du skin du joueur connecté via le
+    // plugin Azuriom Skin-API (même mécanisme que initPreviewSkin côté
+    // settings/launcher : iframe sur /skin3d/3d-api/skin-api/{pseudo}) +
+    // changement de skin (PNG 64x64 ou 64x32, POST /api/skin-api/skins/update
+    // avec l'access_token du compte). Skin-API absente (404) → message
+    // discret, jamais de crash.
+    async initSkin() {
+        const card = document.querySelector('.profile-card-skin');
+        if (!card) return;
+
+        const title = document.getElementById('profile-skin-title');
+        if (title) title.textContent = `🧍 ${t('profile_skin_title') || 'Mon skin'}`;
+        const changeBtn = document.getElementById('profile-skin-change');
+        if (changeBtn) changeBtn.textContent = t('profile_skin_change') || 'Changer de skin';
+
+        try {
+            const selected = (await this.database.get('1234', 'accounts-selected'))?.value?.selected;
+            const account = selected ? (await this.database.get(selected, 'accounts'))?.value : null;
+            if (!account?.name) {
+                card.style.display = 'none';
+                return;
+            }
+            this._skinAccount = account;
+
+            // Sonde la Skin-API : un 404 signifie que le plugin n'est pas
+            // installé/actif sur l'Azuriom → on masque la preview et l'upload.
+            const azauth = getAzAuthUrl(this.config);
+            const probe = await fetch(`${azauth}api/skin-api/avatars/face/${account.name}`);
+            if (probe.status === 404) {
+                this._showSkinApiMissing();
+                return;
+            }
+        } catch (err) {
+            console.warn('[Profile] skin probe failed:', err);
+            this._setSkinStatus('muted', t('profile_skin_error') || 'Skin indisponible.');
+            return;
+        }
+
+        this._refreshSkinViewer();
+
+        const fileInput = document.getElementById('profile-skin-file');
+        if (changeBtn && fileInput) {
+            changeBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', () => {
+                const file = fileInput.files[0];
+                fileInput.value = '';
+                if (file) this._handleSkinFile(file);
+            });
+        }
+    }
+
+    _refreshSkinViewer() {
+        const viewer = document.getElementById('profile-skin-viewer');
+        if (!viewer || !this._skinAccount) return;
+        const azauth = getAzAuthUrl(this.config);
+        viewer.src = `${azauth}skin3d/3d-api/skin-api/${this._skinAccount.name}?t=${Date.now()}`;
+    }
+
+    _setSkinStatus(cls, msg) {
+        const status = document.getElementById('profile-skin-status');
+        if (!status) return;
+        status.className = cls ? `profile-skin-status ${cls}` : 'profile-skin-status';
+        status.textContent = msg || '';
+    }
+
+    _showSkinApiMissing() {
+        const viewer = document.getElementById('profile-skin-viewer');
+        if (viewer) viewer.style.display = 'none';
+        const btn = document.getElementById('profile-skin-change');
+        if (btn) btn.style.display = 'none';
+        this._setSkinStatus('muted', t('profile_skin_api_missing') || 'Skin-API non installée');
+    }
+
+    _handleSkinFile(file) {
+        if (file.type !== 'image/png') {
+            this._setSkinStatus('error', t('error_png_required') || 'Le fichier doit être une image PNG.');
+            return;
+        }
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            const validSize = img.width === 64 && (img.height === 64 || img.height === 32);
+            if (!validSize) {
+                this._setSkinStatus('error', t('profile_skin_size_error') || 'Le skin doit faire 64x64 ou 64x32 pixels.');
+                return;
+            }
+            this._uploadSkin(file);
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            this._setSkinStatus('error', t('error_png_required') || 'Le fichier doit être une image PNG.');
+        };
+        img.src = objectUrl;
+    }
+
+    async _uploadSkin(file) {
+        const btn = document.getElementById('profile-skin-change');
+        if (btn) btn.disabled = true;
+        this._setSkinStatus('', t('profile_skin_uploading') || 'Envoi du skin…');
+        try {
+            const azauth = getAzAuthUrl(this.config);
+            const token = this._skinAccount?.access_token;
+            const formData = new FormData();
+            if (token) formData.append('access_token', token);
+            formData.append('skin', file);
+            const response = await fetch(`${azauth}api/skin-api/skins/update`, {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: formData,
+            });
+            if (response.status === 404) {
+                this._showSkinApiMissing();
+                return;
+            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            this._setSkinStatus('ok', t('profile_skin_updated') || 'Skin mis à jour !');
+            this._refreshSkinViewer();
+            // Rafraîchit aussi la tête du header du profil.
+            const headEl = document.getElementById('profile-player-head');
+            if (headEl && this._skinAccount?.name) {
+                headEl.style.backgroundImage = `url(${azauth}api/skin-api/avatars/face/${this._skinAccount.name}?t=${Date.now()})`;
+            }
+        } catch (err) {
+            console.warn('[Profile] skin upload failed:', err);
+            this._setSkinStatus('error', t('profile_skin_error') || 'Impossible de mettre à jour le skin.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
     }
 
     // ----- Seasonal leaderboards -----

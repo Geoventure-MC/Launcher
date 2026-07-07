@@ -177,5 +177,12 @@
     "repair_scanning": "Scanning files…",
     "repair_done": "{count} corrupted file(s) removed, caches cleared. They will be re-downloaded on the next launch.",
     "repair_done_clean": "No corrupted files found, caches cleared.",
-    "repair_error": "Unable to verify files (panel unreachable). Please try again later."
+    "repair_error": "Unable to verify files (panel unreachable). Please try again later.",
+    "profile_skin_title": "My skin",
+    "profile_skin_change": "Change skin",
+    "profile_skin_uploading": "Uploading skin…",
+    "profile_skin_updated": "Skin updated!",
+    "profile_skin_error": "Unable to update the skin.",
+    "profile_skin_api_missing": "Skin-API not installed",
+    "profile_skin_size_error": "The skin must be 64x64 or 64x32 pixels."
 }

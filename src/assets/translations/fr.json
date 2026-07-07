@@ -177,5 +177,12 @@
     "repair_scanning": "Analyse des fichiers en cours…",
     "repair_done": "{count} fichier(s) corrompu(s) supprimé(s), caches purgés. Ils seront retéléchargés au prochain lancement.",
     "repair_done_clean": "Aucun fichier corrompu détecté, caches purgés.",
-    "repair_error": "Impossible de vérifier les fichiers (panel injoignable). Réessayez plus tard."
+    "repair_error": "Impossible de vérifier les fichiers (panel injoignable). Réessayez plus tard.",
+    "profile_skin_title": "Mon skin",
+    "profile_skin_change": "Changer de skin",
+    "profile_skin_uploading": "Envoi du skin…",
+    "profile_skin_updated": "Skin mis à jour !",
+    "profile_skin_error": "Impossible de mettre à jour le skin.",
+    "profile_skin_api_missing": "Skin-API non installée",
+    "profile_skin_size_error": "Le skin doit faire 64x64 ou 64x32 pixels."
 }
