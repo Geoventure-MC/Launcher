@@ -1650,3 +1650,42 @@ body::-webkit-scrollbar {
 .whatsnew-close-btn:hover {
     filter: brightness(1.12);
 }
+
+/* ---------- Affluence widget (server crowd mini-chart) ---------- */
+.affluence-widget {
+    padding: 12px 14px;
+}
+
+.affluence-title {
+    font: 700 11px/1.2 'Poppins', sans-serif;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 8px;
+}
+
+.affluence-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 52px;
+}
+
+.affluence-bar {
+    flex: 1;
+    min-width: 2px;
+    border-radius: 2px 2px 0 0;
+    background: linear-gradient(to top, var(--accent-color, #4ade80), rgba(255, 255, 255, 0.35));
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+}
+
+.affluence-bar:hover {
+    opacity: 1;
+}
+
+.affluence-peak {
+    margin-top: 8px;
+    font: 600 11px/1.4 'Poppins', sans-serif;
+    color: var(--accent-color, #4ade80);
+}

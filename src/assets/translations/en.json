@@ -167,5 +167,7 @@
     "event_in": "in {t}",
     "offline_mode": "Offline mode — config from {date}",
     "whatsnew_title": "What's new",
-    "whatsnew_close": "Close"
+    "whatsnew_close": "Close",
+    "affluence_title": "Player activity (48h)",
+    "affluence_peak_hours": "Peak hours: {h}"
 }

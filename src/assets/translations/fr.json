@@ -167,5 +167,7 @@
     "event_in": "dans {t}",
     "offline_mode": "Mode hors-ligne — config du {date}",
     "whatsnew_title": "Nouveautés",
-    "whatsnew_close": "Fermer"
+    "whatsnew_close": "Fermer",
+    "affluence_title": "Affluence (48h)",
+    "affluence_peak_hours": "Heures de pointe : {h}"
 }

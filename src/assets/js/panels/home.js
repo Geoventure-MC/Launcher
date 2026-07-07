@@ -95,6 +95,7 @@ class Home {
         this.initInstanceBack();
         this.initUpcomingEvents();
         this.initWhatsNew();
+        this.initAffluence();
 
         sendEvent('launch');
     }
@@ -1302,6 +1303,81 @@ class Home {
         // Compte à rebours re-rendu toutes les 30 s, données rafraîchies toutes les 5 min.
         this._eventsTickTimer = setInterval(() => { if (this._upcomingEvents) render(this._upcomingEvents); }, 30000);
         this._eventsRefreshTimer = setInterval(refresh, 300000);
+    }
+
+    // Affluence : mini-graphe en barres (divs CSS, aucune lib) alimenté par
+    // GET /utils/servers-history?server=<slug> + libellé « Heures de pointe ».
+    // Non bloquant : erreur réseau / aucune donnée → widget simplement masqué.
+    async initAffluence() {
+        const widget = document.getElementById('affluence-widget');
+        const barsEl = document.getElementById('affluence-bars');
+        const titleEl = document.getElementById('affluence-title');
+        const peakEl = document.getElementById('affluence-peak');
+        if (!widget || !barsEl) return;
+
+        const serverId = localStorage.getItem('geoventure_selected_instance')
+            || (pkg.servers && pkg.servers[0] && pkg.servers[0].id)
+            || '';
+        if (!serverId) return;
+
+        try {
+            const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+            const res = await fetch(`${base}utils/servers-history?server=${encodeURIComponent(serverId)}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                signal: AbortSignal.timeout(5000),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const points = Array.isArray(data?.points) ? data.points : [];
+            const peakHours = Array.isArray(data?.peakHours) ? data.peakHours : [];
+            if (!points.length) return;
+
+            if (titleEl) titleEl.textContent = t('affluence_title') !== 'affluence_title' ? t('affluence_title') : 'Affluence (48h)';
+
+            const max = Math.max(1, ...points.map(p => Number(p.players) || 0));
+            barsEl.innerHTML = '';
+            for (const p of points.slice(-48)) {
+                const players = Math.max(0, Number(p.players) || 0);
+                const bar = document.createElement('div');
+                bar.className = 'affluence-bar';
+                bar.style.height = `${Math.max(6, Math.round((players / max) * 100))}%`;
+                const at = new Date(Number(p.t));
+                if (!isNaN(at.getTime())) {
+                    bar.title = `${at.getHours()}h — ${players} ${t('players_online') || 'joueurs'}`;
+                }
+                barsEl.appendChild(bar);
+            }
+
+            if (peakEl) {
+                const label = this._formatPeakHours(peakHours);
+                if (label) {
+                    const tmpl = t('affluence_peak_hours') !== 'affluence_peak_hours'
+                        ? t('affluence_peak_hours') : 'Heures de pointe : {h}';
+                    peakEl.textContent = tmpl.replace('{h}', label);
+                    peakEl.style.display = '';
+                } else {
+                    peakEl.style.display = 'none';
+                }
+            }
+
+            widget.style.display = 'block';
+        } catch {
+            // Non-blocking : widget masqué
+        }
+    }
+
+    // [18,19,20] → "18h–21h" (plage consécutive) ; sinon "18h, 20h, 23h".
+    _formatPeakHours(hours) {
+        const hs = (Array.isArray(hours) ? hours : [])
+            .map(Number)
+            .filter(h => Number.isInteger(h) && h >= 0 && h <= 23)
+            .sort((a, b) => a - b);
+        if (!hs.length) return '';
+        const consecutive = hs.every((h, i) => i === 0 || h === hs[i - 1] + 1);
+        if (consecutive && hs.length > 1) {
+            return `${hs[0]}h–${(hs[hs.length - 1] + 1) % 24}h`;
+        }
+        return hs.map(h => `${h}h`).join(', ');
     }
 
     initInstanceBack() {
