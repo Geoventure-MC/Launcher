@@ -2,7 +2,7 @@
 
 > Fichier de mémoire pour Claude Code. À placer à la racine du repo `panel`
 > (et idéalement une copie dans `installer` et `launcher`).
-> Dernière mise à jour : 2026-06-28.
+> Dernière mise à jour : 2026-07-07.
 
 ## 🎯 Vue d'ensemble
 
@@ -57,6 +57,25 @@ ajouté à tous les appels panel via `utils/instance.js → withInstance()` :
 - **Leaderboards live** : `profile.js` poll `utils/leaderboards` toutes les 30s
   tant que le panneau profil est actif, avec `ETag`/`If-None-Match`
   (`304` → pas de re-render) et animations de changement de rang.
+
+## ✅ Features LAUNCHER livrées (session 2026-07-07)
+
+- **Réparation 1 clic** (`panels/settings.js` + `panels/settings.html`, onglet
+  Avancé) : section « 🔧 Réparer l'installation » — purge les caches de config
+  `localStorage` (`geoventure_config_cache_*`), vérifie chaque fichier du
+  modpack de l'instance active contre le manifeste `{settings_url}data?instance=<slug>`
+  (taille puis hash **sha1** en streaming, dossier de jeu via `utils/gamedir.js`,
+  anti path-traversal) et supprime les fichiers corrompus (re-téléchargés au
+  prochain lancement). Confirmation avant action, spinner pendant l'analyse,
+  rapport final, erreur réseau gérée. i18n `repair_*` (fr/en).
+- **Skin 3D dans le profil** (`panels/profile.js` + `profile.html`/`profile.css`) :
+  carte « 🧍 Mon skin » — preview 3D du joueur connecté (iframe
+  `{azauth}skin3d/3d-api/skin-api/{pseudo}`) + bouton « Changer de skin »
+  (PNG 64x64 ou 64x32 validé via `Image.onload`, POST multipart
+  `{azauth}api/skin-api/skins/update` avec `access_token` du compte + header
+  Bearer). Succès → preview + tête du header rafraîchies. Skin-API absente
+  (probe avatar → 404) → message discret `profile_skin_api_missing`, pas de
+  crash. i18n `profile_skin_*` (fr/en).
 
 ## ✅ Feature LIVRÉE : Annonces / Notifications
 
