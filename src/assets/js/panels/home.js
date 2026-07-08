@@ -13,7 +13,7 @@ import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
 import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
-import { isOfflineMode, offlineCacheDate } from '../utils/config.js';
+import { isOfflineMode, offlineCacheDate, getAzAuthUrl } from '../utils/config.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -684,6 +684,10 @@ class Home {
     refreshAllServersStatus(statuses) {
         if (!Array.isArray(statuses)) return;
 
+        // Conserve les statuts pour le tooltip « joueurs en ligne » des
+        // pastilles serveur (aucun fetch supplémentaire au survol).
+        this._serverStatuses = statuses;
+
         const activePill = document.querySelector('.server-pill.active');
         if (activePill) {
             const activeId = activePill.dataset.serverId;
@@ -1055,8 +1059,72 @@ class Home {
                 setTimeout(() => ipcRenderer.send('main-window-reload'), 300);
             });
 
+            // Tooltip « joueurs en ligne » : au survol, liste les pseudos du
+            // players_sample remonté par /utils/servers-status (déjà chargé
+            // par refreshAllServersStatus — aucun fetch supplémentaire).
+            pill.addEventListener('mouseenter', () => this._showPillPlayersTooltip(pill, server.id));
+            pill.addEventListener('mouseleave', () => this._hidePillPlayersTooltip(pill));
+
             container.appendChild(pill);
         });
+    }
+
+    _showPillPlayersTooltip(pill, serverId) {
+        try {
+            const statuses = this._serverStatuses;
+            if (!Array.isArray(statuses)) return;
+            const status = statuses.find(s => String(s.id) === String(serverId));
+            const sample = status && status.online && Array.isArray(status.players_sample)
+                ? status.players_sample.filter(p => typeof p === 'string' && p.trim())
+                : [];
+            if (!sample.length) return;
+
+            this._hidePillPlayersTooltip();
+
+            // Le title natif est suspendu tant que le tooltip riche est visible.
+            if (pill.title) {
+                pill.dataset.savedTitle = pill.title;
+                pill.title = '';
+            }
+
+            const azauth = getAzAuthUrl(this.config);
+            const count = status.players != null ? status.players : sample.length;
+            const tooltip = document.createElement('div');
+            tooltip.className = 'pill-players-tooltip';
+            tooltip.id = 'pill-players-tooltip';
+            tooltip.innerHTML = `
+                <div class="pill-players-title">${escapeHtml(status.name || '')} — ${escapeHtml(String(count))} ${escapeHtml(t('players_online') || 'joueurs')}</div>
+                ${sample.map(p => `
+                    <div class="pill-player-row">
+                        <img class="pill-player-head" src="${escapeHtml(`${azauth}api/skin-api/avatars/face/${encodeURIComponent(p)}`)}" alt="">
+                        <span class="pill-player-name">${escapeHtml(p)}</span>
+                    </div>`).join('')}
+            `;
+            // Avatar indisponible (Skin-API absente / joueur inconnu) → on
+            // masque l'image mais on garde le pseudo.
+            tooltip.querySelectorAll('.pill-player-head').forEach(img => {
+                img.addEventListener('error', () => { img.style.display = 'none'; });
+            });
+
+            document.body.appendChild(tooltip);
+            const rect = pill.getBoundingClientRect();
+            tooltip.style.left = `${Math.round(rect.right + 10)}px`;
+            const top = Math.max(8, Math.min(
+                Math.round(rect.top + rect.height / 2 - tooltip.offsetHeight / 2),
+                window.innerHeight - tooltip.offsetHeight - 8
+            ));
+            tooltip.style.top = `${top}px`;
+        } catch {
+            // Non bloquant : pas de tooltip en cas de pépin.
+        }
+    }
+
+    _hidePillPlayersTooltip(pill) {
+        document.getElementById('pill-players-tooltip')?.remove();
+        if (pill && pill.dataset.savedTitle) {
+            pill.title = pill.dataset.savedTitle;
+            delete pill.dataset.savedTitle;
+        }
     }
 
     initKeyboardShortcuts() {
