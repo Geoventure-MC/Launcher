@@ -1027,11 +1027,18 @@ class Home {
 
         const currentUrl = localStorage.getItem('geoventure_server_url') || settings_url;
 
+        // Thèmes par instance : la couleur envoyée par le panel
+        // (servers[].theme_color) prime sur celle embarquée dans pkg.servers.
+        const cfgServers = Array.isArray(this.config.servers) ? this.config.servers : [];
+        const isHex = (c) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c);
+
         servers.forEach(server => {
             const pill = document.createElement('button');
             pill.classList.add('server-pill');
             pill.title = `${server.name} — ${server.description}`;
-            pill.style.setProperty('--server-color', server.color);
+            const cfgSrv = cfgServers.find(c => String(c.id) === String(server.id));
+            const pillColor = (cfgSrv && isHex(cfgSrv.theme_color)) ? cfgSrv.theme_color : server.color;
+            pill.style.setProperty('--server-color', pillColor);
             pill.textContent = server.name.charAt(0).toUpperCase();
             pill.dataset.serverId = server.id;
 

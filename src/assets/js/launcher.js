@@ -310,15 +310,51 @@ class Launcher {
         }
     }
 
+    // Couleur du thème d'une instance, par ordre de priorité :
+    // 1. `theme_color` au niveau instance de /utils/api (config chargée avec
+    //    ?instance=<slug>), 2. `servers[].theme_color` de la config panel,
+    // 3. couleur embarquée dans pkg.servers, 4. défauts codés en dur.
+    resolveInstanceColor(selectedId, pkgServer) {
+        const isHex = (c) => typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c);
+        const defaults = { geoventure: '#4ade80', elandor: '#a78bfa', pokeland: '#fb923c' };
+
+        if (isHex(this.config?.theme_color)) return this.config.theme_color;
+        const cfgServer = Array.isArray(this.config?.servers)
+            ? this.config.servers.find(s => String(s.id) === String(selectedId))
+            : null;
+        if (cfgServer && isHex(cfgServer.theme_color)) return cfgServer.theme_color;
+        if (pkgServer && isHex(pkgServer.color)) return pkgServer.color;
+        return defaults[String(selectedId)] || null;
+    }
+
+    // Transition douce lors d'un changement de couleur de thème : active
+    // brièvement des transitions globales le temps que les variables CSS
+    // se propagent, puis retire la classe.
+    _smoothThemeTransition() {
+        if (!document.getElementById('theme-transition-style')) {
+            const style = document.createElement('style');
+            style.id = 'theme-transition-style';
+            style.textContent = 'body.theme-transition, body.theme-transition * { transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease, color 0.5s ease !important; }';
+            document.head.appendChild(style);
+        }
+        document.body.classList.add('theme-transition');
+        clearTimeout(this._themeTransitionTimer);
+        this._themeTransitionTimer = setTimeout(() => document.body.classList.remove('theme-transition'), 600);
+    }
+
     applyServerTheme() {
+        // Rétrocompatible : aucune instance sélectionnée (launcher mono-serveur)
+        // ou aucune couleur résolue → on ne touche à rien.
         const selectedId = localStorage.getItem('geoventure_selected_instance');
         if (!selectedId) return;
         const servers = pkg.servers || [];
+        if (servers.length <= 1) return;
         const server = servers.find(s => s.id === selectedId);
-        if (!server || !server.color) return;
+        const color = this.resolveInstanceColor(selectedId, server);
+        if (!color) return;
 
         const root = document.documentElement;
-        const color = server.color;
+        this._smoothThemeTransition();
         root.style.setProperty('--accent-color', color);
         root.style.setProperty('--accent-color-dark', this.darkenColor(color, 15));
         root.style.setProperty('--accent-color-glow', this.hexToRgba(color, 0.4));
