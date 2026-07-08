@@ -12,7 +12,7 @@ import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
-import { recordLaunch, addPlaytime } from '../utils/achievements.js';
+import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
 import { isOfflineMode, offlineCacheDate } from '../utils/config.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
@@ -544,6 +544,7 @@ class Home {
             this._playStart = Date.now();
             try {
                 const slug = localStorage.getItem('geoventure_selected_instance') || null;
+                this._playInstance = slug;
                 recordLaunch(slug);
             } catch (err) {
                 console.warn('[achievements] recordLaunch failed:', err);
@@ -573,10 +574,14 @@ class Home {
         if (this._playStart) {
             try {
                 addPlaytime((Date.now() - this._playStart) / 60000);
+                // Stats perso : historise la session (début/fin/instance/durée)
+                // pour la carte « Mes stats » du profil (60 jours max).
+                recordSession(this._playInstance || null, this._playStart, Date.now());
             } catch (err) {
                 console.warn('[achievements] addPlaytime failed:', err);
             }
             this._playStart = null;
+            this._playInstance = null;
         }
         this._launchCounted = false;
     }

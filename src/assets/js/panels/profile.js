@@ -4,7 +4,8 @@ import { database, changePanel, t } from '../utils.js';
 import { getAzAuthUrl } from '../utils/config.js';
 import BasePanel from '../utils/BasePanel.js';
 import ApiClient from '../utils/ApiClient.js';
-import { fetchCatalog, getCounters, evaluateCatalog, fetchServerProgress } from '../utils/achievements.js';
+import { fetchCatalog, getCounters, evaluateCatalog, fetchServerProgress, getSessions } from '../utils/achievements.js';
+const pkg = require('../package.json');
 
 class Profile extends BasePanel {
     static id = "profile";
@@ -31,6 +32,173 @@ class Profile extends BasePanel {
             this.loadAchievements(),
             this.initSkin(),
         ]);
+        this.loadPlayStats();
+    }
+
+    // ----- Stats perso (temps de jeu) -----
+    // Carte « 📈 Mes stats » : compteurs 100 % locaux (utils/achievements.js).
+    // Temps de jeu total + par instance, mini-graphe CSS des 30 derniers jours
+    // et records (plus longue session, jours consécutifs joués). Aucune requête
+    // réseau, aucune lib — entièrement défensif (jamais de crash).
+    loadPlayStats() {
+        const el = document.getElementById('profile-playstats');
+        if (!el) return;
+
+        const titleEl = document.getElementById('profile-playstats-title');
+        if (titleEl) titleEl.textContent = `📈 ${t('profile_stats_title') || 'Mes stats'}`;
+
+        try {
+            const counters = getCounters();
+            const sessions = getSessions();
+
+            if (!counters.playtime_minutes && !sessions.length) {
+                el.innerHTML = `<div class="profile-empty">${this._escape(t('profile_stats_empty') || 'Joue une première partie pour voir tes stats !')}</div>`;
+                return;
+            }
+
+            const parts = [];
+
+            // Temps de jeu total (compteur global, historique complet).
+            parts.push(`<div class="playstats-total">
+                <div class="playstats-total-value">${this._escape(this._formatMinutes(counters.playtime_minutes))}</div>
+                <div class="playstats-total-label">${this._escape(t('profile_stats_total') || 'Temps de jeu total')}</div>
+            </div>`);
+
+            // Temps par instance (sessions des 60 derniers jours).
+            const byInstance = new Map();
+            for (const s of sessions) {
+                const key = s.instance || '__default__';
+                byInstance.set(key, (byInstance.get(key) || 0) + s.minutes);
+            }
+            if (byInstance.size) {
+                const servers = Array.isArray(pkg.servers) ? pkg.servers : [];
+                const rows = [...byInstance.entries()]
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([slug, minutes]) => {
+                        const srv = servers.find(s => s.id === slug);
+                        const name = srv ? srv.name
+                            : (slug === '__default__' ? (t('profile_stats_default_instance') || 'Par défaut') : slug);
+                        const color = srv && srv.color ? srv.color : '#9ca3af';
+                        return `<div class="playstats-instance-row">
+                            <span class="playstats-instance-dot" style="background:${this._escape(color)}"></span>
+                            <span class="playstats-instance-name">${this._escape(name)}</span>
+                            <span class="playstats-instance-time">${this._escape(this._formatMinutes(minutes))}</span>
+                        </div>`;
+                    }).join('');
+                parts.push(`<div class="playstats-section-title">${this._escape(t('profile_stats_by_instance') || 'Par instance')}</div>${rows}`);
+            }
+
+            // Mini-graphe des 30 derniers jours (barres CSS, minutes/jour).
+            const days = this._playtimeByDay(sessions, 30);
+            if (days.some(d => d.minutes > 0)) {
+                const max = Math.max(1, ...days.map(d => d.minutes));
+                const bars = days.map(d => {
+                    const h = d.minutes > 0 ? Math.max(8, Math.round((d.minutes / max) * 100)) : 4;
+                    const cls = d.minutes > 0 ? 'playstats-bar' : 'playstats-bar playstats-bar-empty';
+                    const label = `${d.date.toLocaleDateString()} — ${this._formatMinutes(d.minutes)}`;
+                    return `<div class="${cls}" style="height:${h}%" title="${this._escape(label)}"></div>`;
+                }).join('');
+                parts.push(`<div class="playstats-section-title">${this._escape(t('profile_stats_last30') || '30 derniers jours')}</div>
+                    <div class="playstats-graph">${bars}</div>`);
+            }
+
+            // Records : plus longue session + jours consécutifs joués.
+            const longest = sessions.reduce((a, b) => (b.minutes > (a ? a.minutes : 0) ? b : a), null);
+            const streak = this._computeStreak(sessions);
+            const records = [];
+            if (longest) {
+                const when = new Date(longest.start);
+                const dateStr = isNaN(when.getTime()) ? '' : ` (${when.toLocaleDateString()})`;
+                records.push(`<div class="playstats-record-row">
+                    <span>🏅 ${this._escape(t('profile_stats_longest') || 'Plus longue session')}</span>
+                    <span class="playstats-record-value">${this._escape(this._formatMinutes(longest.minutes) + dateStr)}</span>
+                </div>`);
+            }
+            if (streak.best > 0) {
+                const daysUnit = t('profile_stats_days') || 'jours';
+                const current = streak.current > 0
+                    ? ` · ${this._escape((t('profile_stats_streak_current') || 'en cours : {n}').replace('{n}', String(streak.current)))}`
+                    : '';
+                records.push(`<div class="playstats-record-row">
+                    <span>🔥 ${this._escape(t('profile_stats_streak') || 'Jours consécutifs')}</span>
+                    <span class="playstats-record-value">${this._escape(`${streak.best} ${daysUnit}`)}${current}</span>
+                </div>`);
+            }
+            if (records.length) {
+                parts.push(`<div class="playstats-section-title">${this._escape(t('profile_stats_records') || 'Records')}</div>${records.join('')}`);
+            }
+
+            el.innerHTML = parts.join('');
+        } catch (err) {
+            console.warn('[Profile] play stats failed:', err);
+            el.innerHTML = `<div class="profile-empty">${this._escape(t('profile_stats_empty') || 'Statistiques indisponibles.')}</div>`;
+        }
+    }
+
+    // "95" → "1h35" ; "45" → "45m" ; 0/invalid → "0m".
+    _formatMinutes(minutes) {
+        const m = Math.max(0, Math.round(Number(minutes) || 0));
+        if (m < 60) return `${m}m`;
+        const h = Math.floor(m / 60);
+        const rest = m % 60;
+        return rest > 0 ? `${h}h${String(rest).padStart(2, '0')}` : `${h}h`;
+    }
+
+    // Agrège les minutes jouées par jour civil sur les `count` derniers jours
+    // (du plus ancien au plus récent). Chaque session est comptée sur le jour
+    // de son début (suffisant pour un mini-graphe).
+    _playtimeByDay(sessions, count) {
+        const days = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        for (let i = count - 1; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            days.push({ date: d, key: this._dayKey(d), minutes: 0 });
+        }
+        const index = new Map(days.map(d => [d.key, d]));
+        for (const s of sessions) {
+            const day = index.get(this._dayKey(new Date(s.start)));
+            if (day) day.minutes += s.minutes;
+        }
+        return days;
+    }
+
+    _dayKey(date) {
+        return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    }
+
+    // Jours consécutifs joués : meilleure série (best) et série en cours
+    // (current, se terminant aujourd'hui ou hier pour tolérer la nuit).
+    _computeStreak(sessions) {
+        const dayMs = 86400000;
+        const daySet = new Set(sessions.map(s => {
+            const d = new Date(s.start);
+            d.setHours(0, 0, 0, 0);
+            return d.getTime();
+        }));
+        const days = [...daySet].sort((a, b) => a - b);
+        if (!days.length) return { best: 0, current: 0 };
+
+        let best = 1;
+        let run = 1;
+        for (let i = 1; i < days.length; i++) {
+            run = (days[i] - days[i - 1] === dayMs) ? run + 1 : 1;
+            if (run > best) best = run;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const last = days[days.length - 1];
+        let current = 0;
+        if (today.getTime() - last <= dayMs) {
+            current = 1;
+            for (let i = days.length - 1; i > 0; i--) {
+                if (days[i] - days[i - 1] === dayMs) current++;
+                else break;
+            }
+        }
+        return { best, current };
     }
 
     // ----- Skin 3D -----

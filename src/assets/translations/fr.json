@@ -184,5 +184,16 @@
     "profile_skin_updated": "Skin mis à jour !",
     "profile_skin_error": "Impossible de mettre à jour le skin.",
     "profile_skin_api_missing": "Skin-API non installée",
-    "profile_skin_size_error": "Le skin doit faire 64x64 ou 64x32 pixels."
+    "profile_skin_size_error": "Le skin doit faire 64x64 ou 64x32 pixels.",
+    "profile_stats_title": "Mes stats",
+    "profile_stats_empty": "Joue une première partie pour voir tes stats !",
+    "profile_stats_total": "Temps de jeu total",
+    "profile_stats_by_instance": "Par instance",
+    "profile_stats_default_instance": "Par défaut",
+    "profile_stats_last30": "30 derniers jours",
+    "profile_stats_records": "Records",
+    "profile_stats_longest": "Plus longue session",
+    "profile_stats_streak": "Jours consécutifs",
+    "profile_stats_streak_current": "en cours : {n}",
+    "profile_stats_days": "jours"
 }

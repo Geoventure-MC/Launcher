@@ -17,6 +17,9 @@ const pkg = require('../package.json');
 
 const COUNTERS_KEY = 'geoventure_achievements_counters';
 const UNLOCKED_KEY = 'geoventure_achievements_unlocked';
+const SESSIONS_KEY = 'geoventure_play_sessions';
+const SESSION_RETENTION_DAYS = 60;
+const SESSION_MAX_COUNT = 2000;
 
 const settings_url = localStorage.getItem('geoventure_server_url') ||
     (pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings);
@@ -82,6 +85,58 @@ export function addPlaytime(minutes) {
     c.playtime_minutes += m;
     saveCounters(c);
     return c;
+}
+
+/**
+ * Play sessions history (start/end/instance/duration), kept 60 days max.
+ * Feeds the « Mes stats » profile card. Fully defensive: a corrupt store
+ * simply resets to an empty history.
+ */
+export function getSessions() {
+    try {
+        const raw = localStorage.getItem(SESSIONS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return [];
+        const cutoff = Date.now() - SESSION_RETENTION_DAYS * 86400000;
+        return parsed.filter(s =>
+            s && typeof s === 'object' &&
+            Number.isFinite(s.start) && Number.isFinite(s.end) &&
+            s.end >= s.start && s.end >= cutoff &&
+            Number.isFinite(s.minutes) && s.minutes > 0
+        );
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Record a finished play session (game start → close). Duration is clamped to
+ * a sane range (same policy as addPlaytime) and the history is pruned to the
+ * last 60 days / 2000 entries. Never throws.
+ */
+export function recordSession(instanceSlug, startMs, endMs) {
+    const start = Number(startMs);
+    const end = Number(endMs);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return getSessions();
+    const minutes = Math.round((end - start) / 60000);
+    if (minutes <= 0 || minutes > 1440) return getSessions();
+
+    const sessions = getSessions();
+    sessions.push({
+        start,
+        end,
+        instance: instanceSlug ? String(instanceSlug) : null,
+        minutes,
+    });
+    if (sessions.length > SESSION_MAX_COUNT) {
+        sessions.splice(0, sessions.length - SESSION_MAX_COUNT);
+    }
+    try {
+        localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    } catch {
+        // Non-blocking
+    }
+    return sessions;
 }
 
 // Previously-unlocked achievement codes (so we can detect NEW unlocks).
@@ -225,6 +280,8 @@ export default {
     getCounters,
     recordLaunch,
     addPlaytime,
+    getSessions,
+    recordSession,
     getUnlockedCodes,
     fetchCatalog,
     fetchServerProgress,
