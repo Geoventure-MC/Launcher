@@ -199,5 +199,12 @@
     "desktop_notifications": "Desktop notifications (announcements, servers)",
     "desktop_notif_maintenance": "Maintenance announced",
     "desktop_notif_event": "Upcoming event",
-    "desktop_notif_server_online": "Server back online"
+    "desktop_notif_server_online": "Server back online",
+    "screenshots_title": "Screenshots",
+    "screenshots_open_folder": "Open folder",
+    "screenshots_more": "Show more",
+    "screenshots_delete": "Delete",
+    "screenshots_empty": "No screenshots for this instance yet. Press F2 in game!",
+    "screenshots_count": "{n} screenshot(s)",
+    "screenshots_confirm_delete": "Delete {name}?"
 }

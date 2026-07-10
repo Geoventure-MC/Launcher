@@ -5,6 +5,7 @@
 @import "panels/settings.css";
 @import "panels/profile.css";
 @import "panels/changelog.css";
+@import "panels/screenshots.css";
 
 * {
     outline: none;

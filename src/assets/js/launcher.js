@@ -18,6 +18,7 @@ import Login from './panels/login.js';
 import Home from './panels/home.js';
 import Settings from './panels/settings.js';
 import Profile from './panels/profile.js';
+import Screenshots from './panels/screenshots.js';
 import Changelog from './panels/changelog.js';
 import Instances from './panels/instances.js';
 
@@ -41,7 +42,7 @@ class Launcher {
         this.applyServerTheme();
         this.news = await config.GetNews();
         this.database = await new database().init();
-        this.createPanels(Instances, Login, Home, Settings, Profile, Changelog);
+        this.createPanels(Instances, Login, Home, Settings, Profile, Changelog, Screenshots);
         this.getAccounts();
         this.initDiscordRPC();
     }

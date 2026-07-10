@@ -947,6 +947,13 @@ class Home {
         document.querySelector('.profile-btn')?.addEventListener('click', () => {
             changePanel('profile');
         });
+        const screenshotsBtn = document.querySelector('.screenshots-btn');
+        if (screenshotsBtn) {
+            screenshotsBtn.addEventListener('click', () => {
+                changePanel('screenshots');
+                document.dispatchEvent(new CustomEvent('screenshots:open'));
+            });
+        }
         const changelogBtn = document.querySelector('.changelog-btn');
         if (changelogBtn) {
             changelogBtn.title = t('changelog_title') || 'Nouveautés';

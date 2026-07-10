@@ -199,5 +199,12 @@
     "desktop_notifications": "Notifications de bureau (annonces, serveurs)",
     "desktop_notif_maintenance": "Maintenance annoncée",
     "desktop_notif_event": "Événement à venir",
-    "desktop_notif_server_online": "Serveur de retour en ligne"
+    "desktop_notif_server_online": "Serveur de retour en ligne",
+    "screenshots_title": "Captures d'écran",
+    "screenshots_open_folder": "Ouvrir le dossier",
+    "screenshots_more": "Afficher plus",
+    "screenshots_delete": "Supprimer",
+    "screenshots_empty": "Aucune capture pour cette instance. Appuie sur F2 en jeu !",
+    "screenshots_count": "{n} capture(s)",
+    "screenshots_confirm_delete": "Supprimer {name} ?"
 }
