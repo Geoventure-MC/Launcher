@@ -14,6 +14,7 @@ import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
 import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
 import { isOfflineMode, offlineCacheDate, getAzAuthUrl } from '../utils/config.js';
+import * as desktopNotify from '../utils/desktopNotify.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -688,6 +689,20 @@ class Home {
         // pastilles serveur (aucun fetch supplémentaire au survol).
         this._serverStatuses = statuses;
 
+        // Notification de bureau (opt-in) quand un serveur repasse en ligne.
+        try {
+            if (!this._prevOnline) this._prevOnline = {};
+            for (const st of statuses) {
+                const prev = this._prevOnline[st.id];
+                if (prev === false && st.online) {
+                    desktopNotify.notify('server-online',
+                        t('desktop_notif_server_online') || 'Serveur de retour en ligne',
+                        `${st.name || st.id}`);
+                }
+                this._prevOnline[st.id] = !!st.online;
+            }
+        } catch { /* jamais bloquant */ }
+
         const activePill = document.querySelector('.server-pill.active');
         if (activePill) {
             const activeId = activePill.dataset.serverId;
@@ -726,6 +741,20 @@ class Home {
             if (!res.ok) return;
             const notifications = await res.json();
             if (!Array.isArray(notifications) || !notifications.length) return;
+
+            // Notification de bureau (opt-in) pour les NOUVELLES annonces
+            // importantes uniquement (maintenance / événement), jamais revues.
+            for (const notif of notifications) {
+                if (!notif || notif.id == null) continue;
+                if (notif.type !== 'maintenance' && notif.type !== 'event') continue;
+                if (desktopNotify.markSeen(`panel-${notif.id}`)) {
+                    desktopNotify.notify('announce',
+                        notif.type === 'maintenance'
+                            ? (t('desktop_notif_maintenance') || 'Maintenance annoncée')
+                            : (t('desktop_notif_event') || 'Événement à venir'),
+                        String(notif.message || ''));
+                }
+            }
 
             container.innerHTML = '';
             for (const notif of notifications) {

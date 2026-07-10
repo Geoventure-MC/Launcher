@@ -9,6 +9,7 @@
 
 import { database, changePanel, accountSelect, Slider, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
 import { isConsented, setConsent } from '../utils/telemetry.js';
+import * as desktopNotify from '../utils/desktopNotify.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
@@ -707,6 +708,8 @@ class Settings {
         if (privacyTitle) privacyTitle.textContent = t('privacy_title') || 'Confidentialité';
         const telemetryLabel = document.getElementById('telemetry-consent-label');
         if (telemetryLabel) telemetryLabel.textContent = t('telemetry_consent') || "Partager des statistiques anonymes d'utilisation";
+        const desktopNotifLabel = document.getElementById('desktop-notifications-label');
+        if (desktopNotifLabel) desktopNotifLabel.textContent = t('desktop_notifications') || 'Notifications de bureau (annonces, serveurs)';
 
         const dropzoneText = document.getElementById('dropzone-text');
         if (dropzoneText) dropzoneText.textContent = t('dropzone_drag');
@@ -770,6 +773,16 @@ class Settings {
         }
         this.initResolution();
         this.initTelemetryConsent();
+        this.initDesktopNotifications();
+    }
+
+    initDesktopNotifications() {
+        const checkbox = document.getElementById('desktop-notifications');
+        if (!checkbox) return;
+        checkbox.checked = desktopNotify.isEnabled();
+        checkbox.addEventListener('change', () => {
+            desktopNotify.setEnabled(checkbox.checked);
+        });
     }
 
     initTelemetryConsent() {

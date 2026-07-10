@@ -195,5 +195,9 @@
     "profile_stats_longest": "Longest session",
     "profile_stats_streak": "Consecutive days",
     "profile_stats_streak_current": "current: {n}",
-    "profile_stats_days": "days"
+    "profile_stats_days": "days",
+    "desktop_notifications": "Desktop notifications (announcements, servers)",
+    "desktop_notif_maintenance": "Maintenance announced",
+    "desktop_notif_event": "Upcoming event",
+    "desktop_notif_server_online": "Server back online"
 }

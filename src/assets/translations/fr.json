@@ -195,5 +195,9 @@
     "profile_stats_longest": "Plus longue session",
     "profile_stats_streak": "Jours consécutifs",
     "profile_stats_streak_current": "en cours : {n}",
-    "profile_stats_days": "jours"
+    "profile_stats_days": "jours",
+    "desktop_notifications": "Notifications de bureau (annonces, serveurs)",
+    "desktop_notif_maintenance": "Maintenance annoncée",
+    "desktop_notif_event": "Événement à venir",
+    "desktop_notif_server_online": "Serveur de retour en ligne"
 }
