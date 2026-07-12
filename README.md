@@ -79,20 +79,29 @@ Si tu as déjà le launcher, il détecte les nouvelles versions au démarrage et
 | **Profil joueur** | Skin 3D, grade, monnaie boutique |
 | **Profile Hub** | Classement joueurs et panneau factions accessible depuis le launcher |
 | **Statut serveur** | Pills en temps réel (en ligne/hors ligne + nombre de joueurs) pour chaque serveur |
-| **Notifications** | Bandeau d'annonces in-app depuis le panel (info, warning, maintenance, event) |
+| **Notifications** | Bandeau d'annonces in-app depuis le panel (info, warning, maintenance, event) + notifications de bureau opt-in (nouvelles annonces, serveur de retour en ligne) |
 | **News** | Actualités du serveur intégrées |
-| **Résilience réseau** | Gestion robuste des erreurs : garde-fous auth, vérification `response.ok`, fallbacks 502/404, récupération d'erreur au lancement |
+| **Résilience réseau** | Gestion robuste des erreurs : garde-fous auth, vérification `response.ok`, fallbacks 502/404, récupération d'erreur au lancement, **mode hors-ligne intelligent** (dernière config en cache si le panel est injoignable) |
 | **Télémétrie (opt-in)** | Statistiques anonymes (lancements, OS, version) envoyées au panel pour le tableau de bord admin |
 | **RAM** | Configuration MIN/MAX RAM dans les réglages |
 | **Discord** | Rich Presence automatique pendant le jeu |
+| **Stats perso** | 📈 Temps de jeu total et par instance, graphe des 30 derniers jours, records (session la plus longue, jours consécutifs) dans le profil |
+| **Joueurs en ligne** | 👥 Tooltip avec pseudos et avatars au survol des pastilles serveurs |
+| **Thèmes par instance** | 🎨 Couleur d'accent pilotée par le panel (vert Geoventure, violet Elandor, orange Pokeland) |
+| **Captures d'écran** | 📷 Galerie intégrée par instance (vignettes, plein écran, suppression, ouverture du dossier) |
 | **Langues** | Français & English |
 
 ---
 
-## Nouveautés v4.0.26
+## Nouveautés récentes
 
+- **Notifications de bureau (opt-in)** — Nouvelle annonce maintenance/événement ou serveur de retour en ligne : une notification système s'affiche même quand le launcher est en arrière-plan. Activable dans les paramètres, throttlée à 1 par type toutes les 5 minutes.
+- **Galerie de captures d'écran** — Panneau dédié par instance : vignettes, plein écran, suppression, ouverture directe du dossier.
+- **Mode hors-ligne intelligent** — Si le panel est injoignable au démarrage, le launcher réutilise la dernière configuration connue (avec bandeau d'information) au lieu de bloquer — le jeu reste lançable si les fichiers sont déjà téléchargés.
+- **Stats perso & joueurs en ligne** — Le profil affiche ton temps de jeu (total + par instance, graphe 30 jours, records) ; un survol des pastilles serveurs liste les joueurs en ligne avec leur avatar.
+- **Thèmes par instance** — L'interface adapte sa couleur d'accent selon le serveur sélectionné (couleur pilotée depuis le panel).
 - **Bandeau de notifications** — Les annonces du panel (info, warning, maintenance, event) s'affichent en bannière sur l'écran d'accueil. Gestion automatique de l'expiration.
-- **Profile Hub** — Nouveau panneau classement & factions : consulte les rankings serveur et les infos de ta faction directement depuis le launcher.
+- **Profile Hub** — Panneau classement & factions : consulte les rankings serveur et les infos de ta faction directement depuis le launcher.
 - **Résilience réseau** — Gestion robuste des erreurs HTTP : garde-fous sur les URLs d'authentification, vérification `response.ok` avant parsing JSON, fallbacks gracieux pour les erreurs 502/404, et récupération au lancement (le bouton play réapparaît avec un message d'erreur au lieu de rester bloqué).
 - **Pills statut serveur** — Indicateurs en temps réel sur l'écran d'accueil : état en ligne/hors ligne et nombre de joueurs pour chaque serveur.
 - **Télémétrie opt-in** — Envoi anonyme d'événements (lancement, OS, version du launcher) vers le panel pour alimenter les statistiques admin. Activable dans les paramètres.
