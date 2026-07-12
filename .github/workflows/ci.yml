@@ -136,27 +136,62 @@ jobs:
     if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate release notes
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          RANGE=""
+          LAST_TAG=$(git describe --tags --match 'v*' --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then RANGE="${LAST_TAG}..HEAD"; fi
+          # Classement des commits en sections lisibles (messages en français).
+          COMMITS=$(git log ${RANGE} --no-merges --pretty=format:'%s' | awk '!seen[$0]++' | grep -v '\[skip ci\]' | grep -vE '^(chore|Merge )' || true)
+          TECH=$(echo "$COMMITS"  | grep -E  '^(Correction build|Correction des? workflow|CI( |:)|Workflow|Refactor|Suppression|Nettoyage|Documentation|README|CLAUDE)' || true)
+          REST=$(echo "$COMMITS"  | grep -vE '^(Correction build|Correction des? workflow|CI( |:)|Workflow|Refactor|Suppression|Nettoyage|Documentation|README|CLAUDE)' || true)
+          FIXES=$(echo "$REST"    | grep -E  '^(Correction|Corrige|Fix|Hotfix|Bugfix|Répar)' || true)
+          PERFS=$(echo "$REST"    | grep -E  '^(Optimisation|Amélioration|Perf|Robustesse|Stabilité)' || true)
+          FEATS=$(echo "$REST"    | grep -vE '^(Correction|Corrige|Fix|Hotfix|Bugfix|Répar|Optimisation|Amélioration|Perf|Robustesse|Stabilité)' || true)
+          section() { if [ -n "$2" ]; then echo "### $1"; echo ""; echo "$2" | sed 's/^/- /'; echo ""; fi; }
+          {
+            echo "# 🚀 Conflictura Launcher v${VERSION}"
+            echo ""
+            echo "> Le launcher officiel de **Geoventure-MC** — multi-instances, mods et thèmes automatiques."
+            echo ""
+            echo "📅 $(date '+%d/%m/%Y')"
+            echo ""
+            echo "---"
+            echo ""
+            section "✨ Nouveautés" "$FEATS"
+            section "⚡ Améliorations" "$PERFS"
+            section "🐛 Corrections" "$FIXES"
+            section "🔧 Technique" "$TECH"
+            if [ -z "$FEATS$PERFS$FIXES$TECH" ]; then
+              echo "_Mise à jour de maintenance._"
+              echo ""
+            fi
+            echo "---"
+            echo ""
+            echo "### 📥 Téléchargement"
+            echo ""
+            echo "| Plateforme | Fichier |"
+            echo "|---|---|"
+            echo "| **Windows** | \`Conflictura Launcher Setup ${VERSION}.exe\` |"
+            echo "| **macOS Apple Silicon** | \`Conflictura Launcher-${VERSION}-arm64.dmg\` |"
+            echo "| **macOS Intel** | \`Conflictura Launcher-${VERSION}.dmg\` |"
+            echo "| **Linux** | \`Conflictura Launcher-${VERSION}.AppImage\` |"
+            echo ""
+            echo "### 🔄 Mise à jour automatique"
+            echo ""
+            echo "Si tu as déjà le launcher installé, il se met à jour tout seul au prochain démarrage — pas besoin de réinstaller."
+          } > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.prepare.outputs.version }}
           name: "Conflictura Launcher v${{ needs.prepare.outputs.version }}"
-          body: |
-            ## Conflictura Launcher v${{ needs.prepare.outputs.version }}
-
-            ### Téléchargement
-
-            | Plateforme | Fichier |
-            |---|---|
-            | **Windows** | `Conflictura Launcher Setup ${{ needs.prepare.outputs.version }}.exe` |
-            | **macOS Apple Silicon** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}-arm64.dmg` |
-            | **macOS Intel** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}.dmg` |
-            | **Linux** | `Conflictura Launcher-${{ needs.prepare.outputs.version }}.AppImage` |
-
-            ### Mise à jour automatique
-            Si tu as déjà le launcher installé, il se met à jour automatiquement au prochain démarrage — pas besoin de réinstaller.
-
-            ---
-          generate_release_notes: true
-          append_body: true
+          body_path: RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
