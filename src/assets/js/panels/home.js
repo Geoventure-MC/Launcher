@@ -959,6 +959,19 @@ class Home {
             changelogBtn.title = t('changelog_title') || 'Nouveautés';
             changelogBtn.addEventListener('click', () => changePanel('changelog'));
         }
+
+        // Carte du monde : ouverte dans le navigateur, jamais dans le launcher
+        // (Dynmap charge des tuiles et du JS tiers, ça n'a rien à faire dans
+        // la fenêtre du client). Le bouton reste masqué tant que le panel n'a
+        // pas d'URL : on ne devine aucune adresse.
+        const mapBtn = document.querySelector('.map-btn');
+        const mapUrl = typeof this.config?.map_url === 'string' ? this.config.map_url.trim() : '';
+        if (mapBtn && /^https?:\/\//i.test(mapUrl)) {
+            mapBtn.title = t('map_title') || 'Carte du monde';
+            mapBtn.setAttribute('aria-label', mapBtn.title);
+            mapBtn.style.display = '';
+            mapBtn.addEventListener('click', () => shell.openExternal(mapUrl));
+        }
     }
 
     async getDate(e) {
