@@ -206,5 +206,6 @@
     "screenshots_delete": "Supprimer",
     "screenshots_empty": "Aucune capture pour cette instance. Appuie sur F2 en jeu !",
     "screenshots_count": "{n} capture(s)",
-    "screenshots_confirm_delete": "Supprimer {name} ?"
+    "screenshots_confirm_delete": "Supprimer {name} ?",
+    "map_title": "Carte du monde"
 }
