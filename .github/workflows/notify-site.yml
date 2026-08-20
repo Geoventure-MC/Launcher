@@ -1,0 +1,111 @@
+# Annonce la release au site Geoventure. Rien n'est publié immédiatement :
+# le site accumule les versions et les regroupe en un seul article par jour
+# (une version majeure x.0.0 est publiée tout de suite).
+#
+# APPEL NORMAL : release.yml enchaîne ce workflow (workflow_call) juste après
+# avoir publié la release. Ne pas compter sur le déclencheur « on: release » :
+# GitHub ne déclenche AUCUN workflow depuis un événement créé avec le
+# GITHUB_TOKEN par défaut, et c'est ce token qui publie nos releases. Le
+# déclencheur est conservé pour les releases publiées à la main.
+#
+# Déclenchement manuel possible depuis l'onglet Actions (« Run workflow ») :
+#   - test = true  → envoie une entrée de TEST (version v0.0.0-test) pour
+#     vérifier la chaîne de bout en bout sans publier de vraie release ;
+#   - test = false → renvoie la dernière release publiée (utile si le site
+#     était injoignable au moment de la publication).
+name: Annoncer la release au site
+
+on:
+  release:
+    types: [published]
+  # Appelé directement par le workflow de release : l'événement « release »
+  # ci-dessus ne part pas quand la release est créée avec le GITHUB_TOKEN
+  # par défaut (GitHub bloque la cascade de workflows).
+  workflow_call:
+    inputs:
+      test:
+        description: "Envoyer une entrée de test (au lieu de la dernière release)"
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Envoyer une entrée de test (au lieu de la dernière release)"
+        type: boolean
+        default: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Envoyer la version au site
+        env:
+          SITE_URL: ${{ secrets.GEO_SITE_URL }}
+          API_KEY: ${{ secrets.GEO_SITE_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          TEST_MODE: ${{ inputs.test }}
+          REL_TAG: ${{ github.event.release.tag_name }}
+          REL_NAME: ${{ github.event.release.name }}
+          REL_BODY: ${{ github.event.release.body }}
+          REL_URL: ${{ github.event.release.html_url }}
+          REL_DATE: ${{ github.event.release.published_at }}
+        run: |
+          if [ -z "$SITE_URL" ] || [ -z "$API_KEY" ]; then
+            echo "::error::Secrets GEO_SITE_URL / GEO_SITE_API_KEY absents."
+            echo "Ajoutez-les dans Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          if [ "$EVENT" = "release" ]; then
+            echo "Release publiée : $REL_TAG"
+          elif [ "$TEST_MODE" = "true" ]; then
+            echo "Mode TEST : envoi d'une entrée factice (aucune vraie version)."
+            REL_TAG="v0.0.0-test"
+            REL_NAME="Test de la chaîne d'annonce"
+            REL_BODY="- Test automatique : si vous lisez ceci sur le site, la chaîne fonctionne."
+            REL_URL="https://github.com/$REPO"
+            REL_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          else
+            echo "Renvoi de la dernière release publiée."
+            REL_TAG=$(gh release view --repo "$REPO" --json tagName     -q .tagName)
+            REL_NAME=$(gh release view --repo "$REPO" --json name       -q .name)
+            REL_BODY=$(gh release view --repo "$REPO" --json body       -q .body)
+            REL_URL=$(gh release view --repo "$REPO" --json url         -q .url)
+            REL_DATE=$(gh release view --repo "$REPO" --json publishedAt -q .publishedAt)
+          fi
+
+          jq -n \
+            --arg source "launcher" \
+            --arg version "$REL_TAG" \
+            --arg title "$REL_NAME" \
+            --arg body "$REL_BODY" \
+            --arg url "$REL_URL" \
+            --arg released_at "$REL_DATE" \
+            '{source:$source, version:$version, title:$title, body:$body, url:$url, released_at:$released_at}' \
+            > payload.json
+
+          code=$(curl -sS -o response.json -w '%{http_code}' \
+            -X POST "$SITE_URL/api/geo-countries/changelog" \
+            -H "Content-Type: application/json" \
+            -H "X-Geo-Api-Key: $API_KEY" \
+            --data @payload.json)
+
+          echo "── Réponse du site (HTTP $code) ──"
+          cat response.json; echo
+
+          if [ "$code" = "200" ]; then
+            echo "::notice::✅ Le site a enregistré la version $REL_TAG. Vérifiez l'aperçu dans l'admin."
+          elif [ "$code" = "403" ]; then
+            echo "::error::❌ Clé API refusée : vérifiez GEO_SITE_API_KEY (Admin → Pays & Classements)."
+            [ "$EVENT" = "release" ] || exit 1
+          elif [ "$code" = "404" ]; then
+            echo "::error::❌ Route introuvable : le plugin geo-countries v1.7.0+ est-il installé et migré ?"
+            [ "$EVENT" = "release" ] || exit 1
+          else
+            echo "::error::❌ Le site n'a pas accepté l'annonce (HTTP $code)."
+            [ "$EVENT" = "release" ] || exit 1
+          fi
