@@ -970,8 +970,58 @@ class Home {
             mapBtn.title = t('map_title') || 'Carte du monde';
             mapBtn.setAttribute('aria-label', mapBtn.title);
             mapBtn.style.display = '';
-            mapBtn.addEventListener('click', () => shell.openExternal(mapUrl));
+            mapBtn.addEventListener('click', () => this.openWebPage(mapUrl));
         }
+    }
+
+    /**
+     * Ouvre une page du site dans le navigateur, connecté quand c'est possible.
+     *
+     * Le joueur est déjà identifié ici ; l'envoyer sur une page de connexion
+     * pour voir la carte de SON pays n'a aucun sens. Le site sait échanger le
+     * jeton du compte contre un lien d'entrée à usage unique.
+     *
+     * Tout ce qui peut échouer (pas de compte, hors ligne, site sans le
+     * plugin) retombe sur l'ouverture simple : ce confort ne doit jamais
+     * empêcher d'accéder à la page.
+     */
+    async openWebPage(url) {
+        try {
+            const azauth = getAzAuthUrl(this.config);
+            const selected = await this.database.get('1234', 'accounts-selected');
+            const account = selected?.value?.selected
+                ? (await this.database.get(selected.value.selected, 'accounts'))?.value
+                : null;
+
+            if (azauth && account?.access_token) {
+                // Chemin interne uniquement : le site refuse une URL complète,
+                // et l'ouverture directe reste le repli.
+                const target = new URL(url);
+                const site = new URL(azauth);
+                if (target.host === site.host) {
+                    const response = await fetch(`${azauth.replace(/\/$/, '')}/api/geo-countries/weblink`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify({
+                            access_token: account.access_token,
+                            path: target.pathname + target.search,
+                        }),
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (typeof data?.url === 'string' && /^https?:\/\//i.test(data.url)) {
+                            shell.openExternal(data.url);
+                            return;
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Lien de connexion indisponible, ouverture simple :', error);
+        }
+
+        shell.openExternal(url);
     }
 
     async getDate(e) {
