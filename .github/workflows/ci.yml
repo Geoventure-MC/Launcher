@@ -135,6 +135,8 @@ jobs:
     needs: [prepare, build-launcher]
     if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      released: 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -195,3 +197,16 @@ jobs:
           body_path: RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Le launcher publiait ses releases sans jamais en informer le site : ses
+  # versions n'apparaissaient donc dans aucun changelog, alors que le site
+  # accepte la source « launcher » et a sa rubrique dédiée.
+  #
+  # L'annonce est CHAÎNÉE ici plutôt que déclenchée par « on: release » :
+  # GitHub ne déclenche aucun workflow depuis un événement créé avec le
+  # GITHUB_TOKEN par défaut, et c'est ce token qui publie la release.
+  notify-site:
+    needs: create-release-notes
+    if: needs.create-release-notes.outputs.released == 'true'
+    uses: ./.github/workflows/notify-site.yml
+    secrets: inherit
