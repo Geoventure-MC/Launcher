@@ -774,7 +774,7 @@ class Home {
                 if (notif.url) {
                     el.querySelector('.notif-link')?.addEventListener('click', (e) => {
                         e.preventDefault();
-                        shell.openExternal(notif.url);
+                        this.openWebPage(notif.url);
                     });
                 }
                 container.appendChild(el);
@@ -1633,7 +1633,7 @@ class Home {
                 </div>
             `;
             if (item.url) {
-                card.addEventListener('click', () => shell.openExternal(item.url));
+                card.addEventListener('click', () => this.openWebPage(item.url));
             }
             row.appendChild(card);
         }
@@ -1665,7 +1665,7 @@ class Home {
                 </div>
             `;
             if (item.url) {
-                card.addEventListener('click', () => shell.openExternal(item.url));
+                card.addEventListener('click', () => this.openWebPage(item.url));
             }
             row.appendChild(card);
         }
@@ -1697,7 +1697,7 @@ class Home {
                 </div>
             `;
             if (item.url) {
-                card.addEventListener('click', () => shell.openExternal(item.url));
+                card.addEventListener('click', () => this.openWebPage(item.url));
             }
             container.appendChild(card);
         }
