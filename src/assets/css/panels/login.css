@@ -44,8 +44,8 @@
 .login-icon {
     font-size: 56px;
     background: linear-gradient(180deg,
-            var(--accent-color, #00bd7a) 0%,
-            var(--accent-color-dark, #00a066) 100%);
+            var(--accent-color, var(--geo-accent)) 0%,
+            var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -70,7 +70,7 @@
     font-family: 'Poppins', sans-serif;
     font-size: 13px;
     font-weight: 500;
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
     min-height: 22px;
     margin-bottom: 18px;
     text-shadow: 0 0 20px var(--accent-color-glow, rgba(0, 189, 122, 0.3));
@@ -117,7 +117,7 @@
 }
 
 .login-input:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     background: rgba(0, 0, 0, 0.4);
     box-shadow:
         0 0 0 4px var(--accent-color-glow, rgba(0, 189, 122, 0.15)),
@@ -148,7 +148,7 @@
 
 .password-reset:hover,
 .new-user:hover {
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
 }
 
 .primary-btn,
@@ -158,8 +158,8 @@
     font-weight: 700;
     color: #0a0a0a;
     background: linear-gradient(180deg,
-            var(--accent-color, #00bd7a) 0%,
-            var(--accent-color-dark, #00a066) 100%);
+            var(--accent-color, var(--geo-accent)) 0%,
+            var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     border: none;
     border-radius: 14px;
     padding: 16px 24px;
@@ -250,8 +250,8 @@
     font-weight: 700;
     color: #0a0a0a;
     background: linear-gradient(180deg,
-            var(--accent-color, #00bd7a) 0%,
-            var(--accent-color-dark, #00a066) 100%);
+            var(--accent-color, var(--geo-accent)) 0%,
+            var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     border: none;
     border-radius: 14px;
     padding: 16px 24px;
@@ -306,7 +306,7 @@
 }
 
 .login-mojang-input:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     background: rgba(0, 0, 0, 0.4);
 }
 

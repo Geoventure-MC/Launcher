@@ -42,7 +42,7 @@
 }
 
 .profile-player-head:hover {
-    border-color: var(--accent-color, #4ade80);
+    border-color: var(--accent-color, var(--geo-geoventure));
 }
 
 .profile-player-name {
@@ -113,11 +113,11 @@
 }
 
 .profile-card-leaderboard h3 {
-    color: var(--accent-color, #4ade80);
+    color: var(--accent-color, var(--geo-geoventure));
 }
 
 .profile-card-factions h3 {
-    color: #a78bfa;
+    color: var(--geo-elandor);
 }
 
 .profile-card > div {
@@ -193,7 +193,7 @@
 }
 
 .profile-faction-you {
-    color: #a78bfa;
+    color: var(--geo-elandor);
     font-size: 10px;
     font-weight: 600;
 }
@@ -205,7 +205,7 @@
 }
 
 .profile-coins {
-    color: #fbbf24;
+    color: var(--geo-gold);
 }
 
 /* ----- Live leaderboard ----- */
@@ -221,7 +221,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: #4ade80;
+    color: var(--geo-geoventure);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -231,8 +231,8 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #4ade80;
-    box-shadow: 0 0 6px #4ade80;
+    background: var(--geo-geoventure);
+    box-shadow: 0 0 6px var(--geo-geoventure);
     animation: leaderboard-pulse 1.6s ease-in-out infinite;
 }
 
@@ -294,7 +294,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #4ade80;
+    color: var(--geo-geoventure);
     background: rgba(74, 222, 128, 0.15);
     border: 1px solid rgba(74, 222, 128, 0.4);
     padding: 2px 9px;
@@ -305,8 +305,8 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #4ade80;
-    box-shadow: 0 0 6px #4ade80;
+    background: var(--geo-geoventure);
+    box-shadow: 0 0 6px var(--geo-geoventure);
     animation: leaderboard-pulse 1.6s ease-in-out infinite;
 }
 
@@ -317,7 +317,7 @@
 }
 
 .profile-season-countdown strong {
-    color: #4ade80;
+    color: var(--geo-geoventure);
     font-variant-numeric: tabular-nums;
     font-weight: 700;
 }
@@ -340,7 +340,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #4ade80;
+    color: var(--geo-geoventure);
     margin-bottom: 8px;
     display: flex;
     align-items: center;
@@ -361,7 +361,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #a78bfa;
+    color: var(--geo-elandor);
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -405,11 +405,11 @@
 
 .profile-season-winner {
     font-size: 12px;
-    color: #fbbf24;
+    color: var(--geo-gold);
 }
 
 .profile-season-winner-faction {
-    color: #a78bfa;
+    color: var(--geo-elandor);
     font-size: 11px;
 }
 
@@ -420,7 +420,7 @@
 
 .profile-season-reward {
     font-size: 11px;
-    color: #4ade80;
+    color: var(--geo-geoventure);
 }
 
 /* ----- Achievements ----- */
@@ -430,12 +430,12 @@
 }
 
 .profile-card-achievements h3 {
-    color: #fbbf24;
+    color: var(--geo-gold);
     justify-content: space-between;
 }
 
 .profile-achievements-points {
-    color: #fbbf24;
+    color: var(--geo-gold);
     font-size: 12px;
     font-weight: 600;
     background: rgba(251, 191, 36, 0.12);
@@ -529,7 +529,7 @@
 
 .achievement-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #fbbf24, #4ade80);
+    background: linear-gradient(90deg, var(--geo-gold), var(--geo-geoventure));
     border-radius: 4px;
     transition: width 0.4s ease;
 }
@@ -542,7 +542,7 @@
 
 .achievement-manual-note {
     font-size: 10px;
-    color: #a78bfa;
+    color: var(--geo-elandor);
     margin-top: 4px;
 }
 
@@ -554,7 +554,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #4ade80;
+    color: var(--geo-geoventure);
     background: rgba(74, 222, 128, 0.15);
     border: 1px solid rgba(74, 222, 128, 0.4);
     border-radius: 8px;
@@ -564,7 +564,7 @@
 .achievement-points {
     font-size: 11px;
     font-weight: 600;
-    color: #fbbf24;
+    color: var(--geo-gold);
     white-space: nowrap;
 }
 
@@ -614,7 +614,7 @@
 
 .achievement-toast-title {
     font-size: 11px;
-    color: #fbbf24;
+    color: var(--geo-gold);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -684,11 +684,11 @@
 }
 
 .profile-skin-status.ok {
-    color: #4ade80;
+    color: var(--geo-geoventure);
 }
 
 .profile-skin-status.error {
-    color: #f87171;
+    color: var(--geo-danger-soft);
 }
 
 .profile-skin-status.muted {

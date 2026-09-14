@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "authority": "geoventure-mc/geoMods — design/palette.json",
+  "$comment": [
+    "Copie vendorée de la palette Geoventure pour le launcher.",
+    "",
+    "Le groupe « server » est PARTAGÉ : ses valeurs doivent rester identiques à",
+    "celles du dépôt qui fait autorité. Les autres groupes sont propres au",
+    "launcher — son vert d'accent (#00bd7a) n'est ni celui du site (#4ade80) ni",
+    "celui du jeu (violet #6c5ce7). Cet écart n'est pas corrigé ici : changer",
+    "l'accent du launcher est une décision visuelle, pas une refactorisation.",
+    "",
+    "Régénérer : python3 tools/gen_palette.py"
+  ],
+  "groups": [
+    {
+      "id": "server",
+      "name": "Serveurs",
+      "doc": "Partagé avec le jeu, le site et le panel. Ne pas réaffecter.",
+      "tokens": [
+        {
+          "id": "geoventure",
+          "argb": "#FF4ADE80",
+          "doc": "Geoventure"
+        },
+        {
+          "id": "elandor",
+          "argb": "#FFA78BFA",
+          "doc": "Elandor Chronicles"
+        },
+        {
+          "id": "pokeland",
+          "argb": "#FFFB923C",
+          "doc": "Pokeland"
+        }
+      ]
+    },
+    {
+      "id": "launcher",
+      "name": "Accent du launcher",
+      "doc": "Propre au launcher.",
+      "tokens": [
+        {
+          "id": "accent",
+          "argb": "#FF00BD7A",
+          "doc": "vert d'accent"
+        },
+        {
+          "id": "accent_dark",
+          "argb": "#FF00A066",
+          "doc": "accent enfoncé / survol"
+        }
+      ]
+    },
+    {
+      "id": "state",
+      "name": "États",
+      "tokens": [
+        {
+          "id": "gold",
+          "argb": "#FFFBBF24",
+          "doc": "fortune / avertissement — diverge du jeu (#f59e0b)"
+        },
+        {
+          "id": "danger",
+          "argb": "#FFEF4444",
+          "doc": "erreur"
+        },
+        {
+          "id": "danger_soft",
+          "argb": "#FFF87171",
+          "doc": "erreur atténuée"
+        }
+      ]
+    }
+  ]
+}

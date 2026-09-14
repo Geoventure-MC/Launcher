@@ -60,7 +60,7 @@
 
 .active-tab-btn {
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.15));
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     color: #ffffff;
     box-shadow: 0 0 20px var(--accent-color-glow, rgba(0, 189, 122, 0.3));
 }
@@ -72,7 +72,7 @@
 
 .save-tabs-btn {
     margin-top: auto !important;
-    background: linear-gradient(180deg, var(--accent-color, #00bd7a) 0%, var(--accent-color-dark, #00a066) 100%);
+    background: linear-gradient(180deg, var(--accent-color, var(--geo-accent)) 0%, var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     border-color: transparent;
     color: #0a0a0a;
     font-weight: 600;
@@ -81,7 +81,7 @@
 }
 
 .save-tabs-btn:hover {
-    background: linear-gradient(180deg, var(--accent-color, #00bd7a) 0%, var(--accent-color-dark, #00a066) 100%);
+    background: linear-gradient(180deg, var(--accent-color, var(--geo-accent)) 0%, var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     filter: brightness(1.1);
     box-shadow: 0 4px 18px var(--accent-color-glow, rgba(0, 189, 122, 0.4));
     transform: none;
@@ -186,7 +186,7 @@
 }
 
 .add-account:hover {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.1));
     color: #ffffff;
 }
@@ -264,13 +264,13 @@
     align-items: center;
     justify-content: center;
     transition: all 0.25s ease;
-    color: #ef4444;
+    color: var(--geo-danger);
     font-size: 18px;
 }
 
 .account-delete:hover {
     background: rgba(239, 68, 68, 0.25);
-    border-color: #ef4444;
+    border-color: var(--geo-danger);
     transform: translateY(-50%) scale(1.05);
 }
 
@@ -280,13 +280,13 @@
 
 .active-account {
     background: rgba(0, 0, 0, 0.3);
-    border: 2px solid var(--accent-color, #00bd7a);
+    border: 2px solid var(--accent-color, var(--geo-accent));
     box-shadow: 0 0 25px var(--accent-color-glow, rgba(0, 189, 122, 0.2));
 }
 
 .active-account:hover {
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.2));
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 .java-settings {
@@ -325,7 +325,7 @@
     width: 20px;
     height: 20px;
     background: #ffffff;
-    border: 3px solid var(--accent-color, #00bd7a);
+    border: 3px solid var(--accent-color, var(--geo-accent));
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -341,7 +341,7 @@
 .slider-touch-left span:after,
 .slider-touch-right span:after {
     content: attr(value);
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
     font: 600 11px/1 'Poppins', sans-serif;
     white-space: nowrap;
     pointer-events: none;
@@ -368,7 +368,7 @@
     display: block;
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, var(--accent-color, #00bd7a), var(--accent-color-dark, #00a066));
+    background: linear-gradient(90deg, var(--accent-color, var(--geo-accent)), var(--accent-color-dark, var(--geo-accent-dark)));
     border-radius: 2px;
 }
 
@@ -403,7 +403,7 @@
 }
 
 .path:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     box-shadow: 0 0 10px var(--accent-color-glow, rgba(0, 189, 122, 0.2));
 }
 
@@ -412,7 +412,7 @@
     font: 500 12px/1 'Poppins', sans-serif;
     border-radius: 8px;
     padding: 10px 18px;
-    background: linear-gradient(180deg, var(--accent-color, #00bd7a) 0%, var(--accent-color-dark, #00a066) 100%);
+    background: linear-gradient(180deg, var(--accent-color, var(--geo-accent)) 0%, var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     color: #0a0a0a;
     cursor: pointer;
     margin-left: 10px;
@@ -447,7 +447,7 @@
 }
 
 .args-settings:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 .input-size-content {
@@ -476,7 +476,7 @@
 }
 
 .input-settings:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 .size-cross {
@@ -497,7 +497,7 @@
 
 .select {
     border-radius: 10px;
-    background: linear-gradient(180deg, var(--accent-color, #00bd7a) 0%, var(--accent-color-dark, #00a066) 100%);
+    background: linear-gradient(180deg, var(--accent-color, var(--geo-accent)) 0%, var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     font: 500 12px/1 'Poppins', sans-serif;
     padding: 10px 30px 10px 14px;
     border: none;
@@ -527,12 +527,12 @@
 }
 
 .checkbox-settings+label:hover {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 .checkbox-settings:checked+label {
-    background: var(--accent-color, #00bd7a);
-    border-color: var(--accent-color, #00bd7a);
+    background: var(--accent-color, var(--geo-accent));
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 .checkbox-settings:checked+label .checkround {
@@ -601,16 +601,16 @@
 
 .launch-option .launch-icon-btn:hover {
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.1));
-    border-color: var(--accent-color, #00bd7a);
-    color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
+    color: var(--accent-color, var(--geo-accent));
     transform: translateY(-5px);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 0 15px var(--accent-color-glow, rgba(0, 189, 122, 0.2));
 }
 
 .checkbox-settings:checked+.launch-icon-btn {
     background: linear-gradient(135deg, var(--accent-color-subtle, rgba(0, 189, 122, 0.25)) 0%, rgba(0, 189, 122, 0.15) 100%);
-    border: 2px solid var(--accent-color, #00bd7a);
-    color: var(--accent-color, #00bd7a);
+    border: 2px solid var(--accent-color, var(--geo-accent));
+    color: var(--accent-color, var(--geo-accent));
     box-shadow:
         0 0 30px var(--accent-color-glow, rgba(0, 189, 122, 0.4)),
         inset 0 0 20px var(--accent-color-glow, rgba(0, 189, 122, 0.1));
@@ -622,7 +622,7 @@
     position: absolute;
     inset: -4px;
     border-radius: 20px;
-    border: 2px solid var(--accent-color, #00bd7a);
+    border: 2px solid var(--accent-color, var(--geo-accent));
     opacity: 0.4;
     pointer-events: none;
 }
@@ -746,11 +746,11 @@
 
 .mods-recommanded {
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.2));
-    border: 1px solid var(--accent-color, #00bd7a);
+    border: 1px solid var(--accent-color, var(--geo-accent));
     border-radius: 6px;
     padding: 3px 8px;
     font: 500 11px/1 'Poppins', sans-serif;
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
 }
 
 .mods-icon {
@@ -813,12 +813,12 @@
 }
 
 .skin-dropzone:hover {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.08));
 }
 
 .skin-dropzone.drag-over {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.15));
     border-style: solid;
     transform: scale(1.02);
@@ -847,7 +847,7 @@
 }
 
 .skin-dropzone:hover .dropzone-icon {
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
     transform: translateY(-3px);
 }
 
@@ -865,7 +865,7 @@
 
 .dropzone-requirements {
     font: 500 11px/1 'Poppins', sans-serif;
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.15));
     padding: 6px 12px;
     border-radius: 20px;
@@ -886,12 +886,12 @@
 
 .dropzone-hover-state i {
     font-size: 48px;
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
 }
 
 .dropzone-hover-state span {
     font: 600 16px/1 'Poppins', sans-serif;
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
 }
 
 .skin-dropzone.drag-over .dropzone-hover-state {
@@ -899,12 +899,12 @@
 }
 
 .skin-dropzone.upload-success {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     border-style: solid;
 }
 
 .skin-dropzone.upload-success .dropzone-icon {
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
 }
 
 .switch {
@@ -949,12 +949,12 @@
 
 input:checked+.slider {
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.3));
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 input:checked+.slider:before {
     transform: translateX(18px);
-    background: var(--accent-color, #00bd7a);
+    background: var(--accent-color, var(--geo-accent));
 }
 
 /* ─── Advanced Tab ─────────────────────────────────────────────────────────── */
@@ -985,7 +985,7 @@ input:checked+.slider:before {
     max-width: 300px;
     padding: 12px 18px;
     border-radius: 10px;
-    background: linear-gradient(180deg, var(--accent-color, #00bd7a) 0%, var(--accent-color-dark, #00a066) 100%);
+    background: linear-gradient(180deg, var(--accent-color, var(--geo-accent)) 0%, var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     border: none;
     color: #0a0a0a;
     font: 600 13px/1 'Poppins', sans-serif;
@@ -1030,11 +1030,11 @@ input:checked+.slider:before {
 }
 
 .repair-status-ok {
-    color: #4ade80;
+    color: var(--geo-geoventure);
 }
 
 .repair-status-error {
-    color: #f87171;
+    color: var(--geo-danger-soft);
 }
 
 /* ─── Resolution Settings ──────────────────────────────────────────────────── */
@@ -1061,7 +1061,7 @@ input:checked+.slider:before {
 }
 
 .resolution-select:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 .resolution-select option {
@@ -1095,7 +1095,7 @@ input:checked+.slider:before {
 }
 
 .resolution-input:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
 }
 
 /* ─── Community Mods ───────────────────────────────────────────────────────── */
@@ -1111,7 +1111,7 @@ input:checked+.slider:before {
 }
 
 .community-mod-btn.install {
-    background: linear-gradient(180deg, var(--accent-color, #00bd7a) 0%, var(--accent-color-dark, #00a066) 100%);
+    background: linear-gradient(180deg, var(--accent-color, var(--geo-accent)) 0%, var(--accent-color-dark, var(--geo-accent-dark)) 100%);
     color: #0a0a0a;
     box-shadow: 0 2px 10px var(--accent-color-glow, rgba(0, 189, 122, 0.3));
 }
@@ -1124,12 +1124,12 @@ input:checked+.slider:before {
 .community-mod-btn.uninstall {
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.4);
-    color: #ef4444;
+    color: var(--geo-danger);
 }
 
 .community-mod-btn.uninstall:hover {
     background: rgba(239, 68, 68, 0.25);
-    border-color: #ef4444;
+    border-color: var(--geo-danger);
 }
 
 .community-mod-btn:disabled {
@@ -1173,7 +1173,7 @@ input:checked+.slider:before {
 }
 
 .community-search-input:focus {
-    border-color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
     background: rgba(0, 0, 0, 0.35);
 }
 
@@ -1209,8 +1209,8 @@ input:checked+.slider:before {
 
 .community-filter-chip.active {
     background: var(--accent-color-subtle, rgba(0, 189, 122, 0.2));
-    border-color: var(--accent-color, #00bd7a);
-    color: var(--accent-color, #00bd7a);
+    border-color: var(--accent-color, var(--geo-accent));
+    color: var(--accent-color, var(--geo-accent));
 }
 
 /* Community mod card extras */
@@ -1233,7 +1233,7 @@ input:checked+.slider:before {
 }
 
 .community-meta-version {
-    color: var(--accent-color, #00bd7a);
+    color: var(--accent-color, var(--geo-accent));
     font-weight: 500;
 }
 
@@ -1271,7 +1271,7 @@ input:checked+.slider:before {
     height: 18px;
     border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.15);
-    border-top-color: var(--accent-color, #00bd7a);
+    border-top-color: var(--accent-color, var(--geo-accent));
     animation: community-spin 0.8s linear infinite;
 }
 

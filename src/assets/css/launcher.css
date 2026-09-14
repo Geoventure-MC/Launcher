@@ -1,3 +1,4 @@
+@import "palette.css";
 @import "font.css";
 @import "panels/instances.css";
 @import "panels/login.css";
@@ -123,8 +124,8 @@ img {
     border-radius: 50%;
     background: conic-gradient(from 0deg,
             transparent 0%,
-            var(--accent-color, #00bd7a) 25%,
-            var(--accent-color, #00bd7a) 30%,
+            var(--accent-color, var(--geo-accent)) 25%,
+            var(--accent-color, var(--geo-accent)) 30%,
             transparent 60%);
     animation: spinLoader 1.2s linear infinite;
     mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #fff calc(100% - 4px));
@@ -150,7 +151,7 @@ img {
     position: absolute;
     width: 12px;
     height: 12px;
-    background: var(--accent-color, #00bd7a);
+    background: var(--accent-color, var(--geo-accent));
     border-radius: 50%;
     z-index: 2;
     animation: dotPulse 1.5s ease-in-out infinite;
@@ -283,8 +284,8 @@ img {
     border-radius: 50%;
     background: conic-gradient(from 0deg,
             transparent 0%,
-            var(--accent-color, #00bd7a) 25%,
-            var(--accent-color, #00bd7a) 30%,
+            var(--accent-color, var(--geo-accent)) 25%,
+            var(--accent-color, var(--geo-accent)) 30%,
             transparent 60%);
     animation: spinLoader 1s linear infinite;
     mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 3px));
@@ -306,7 +307,7 @@ img {
     position: absolute;
     width: 10px;
     height: 10px;
-    background: var(--accent-color, #00bd7a);
+    background: var(--accent-color, var(--geo-accent));
     border-radius: 50%;
     z-index: 2;
     animation: dotPulse 1.2s ease-in-out infinite;

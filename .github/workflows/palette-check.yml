@@ -1,0 +1,61 @@
+# Vérifie que la feuille de couleurs générée est à jour, et que chaque
+# variable `--geo-*` utilisée dans le CSS existe bien avec la bonne valeur.
+#
+# Pourquoi : la palette vient de design/palette.json et src/assets/css/palette.css
+# en est le produit. Sans ce contrôle, rien n'empêche de retoucher la feuille
+# générée à la main — et la palette redevient une palette par fichier CSS,
+# ce qui était exactement l'état d'avant (#4ade80 en 28 exemplaires).
+name: Palette
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  palette:
+    name: Cohérence de la palette
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: La feuille générée est à jour
+        run: python3 tools/gen_palette.py --check
+
+      - name: Chaque variable utilisée est définie, avec la bonne valeur
+        run: |
+          python3 - <<'PY'
+          import json, os, re, sys
+
+          palette = json.load(open("design/palette.json", encoding="utf-8"))
+          want = {
+              "--geo-" + t["id"].replace("_", "-"): "#" + t["argb"].lstrip("#")[2:].lower()
+              for g in palette["groups"] for t in g["tokens"]
+          }
+
+          css = open("src/assets/css/palette.css", encoding="utf-8").read()
+          defined = dict(re.findall(r"(--geo-[a-z-]+):\s*(#[0-9a-f]{6}|rgba\([^)]*\))", css))
+
+          used = set()
+          for root, _dirs, files in os.walk("src/assets/css"):
+              for name in files:
+                  if name.endswith(".css") and name != "palette.css":
+                      body = open(os.path.join(root, name), encoding="utf-8").read()
+                      used |= set(re.findall(r"var\((--geo-[a-z-]+)\)", body))
+
+          missing = sorted(v for v in used if v not in defined)
+          wrong = sorted(v for v in used if v in defined and v in want and defined[v] != want[v])
+
+          if missing:
+              print("::error::Variables utilisées mais non définies : %s" % ", ".join(missing))
+          if wrong:
+              print("::error::Variables dont la valeur ne correspond plus à palette.json : %s"
+                    % ", ".join(wrong))
+          if missing or wrong:
+              sys.exit(1)
+
+          print("%d variables utilisées, toutes définies et conformes." % len(used))
+          PY
