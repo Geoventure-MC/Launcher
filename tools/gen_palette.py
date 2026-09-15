@@ -8,7 +8,8 @@ pas de variante par dépôt à maintenir.
 
 Sorties possibles :
   design/palette.css          variables CSS `--geo-*` (référence du dépôt)
-  src/assets/css/palette.css  la même, là où le launcher l'empaquette
+  src/assets/css/palette.css      la même, là où le launcher l'empaquette
+  public/assets/css/palette.css   la même, là où le panel la sert
   design/palette.md    tableau lisible, pour la charte
   GeoStyle.java        bloc de constantes, entre les marqueurs palette (mod)
 
@@ -204,9 +205,10 @@ def main():
     # Le launcher empaquette src/ : la feuille doit y être pour être servie.
     # Même script partout, qui écrit ce qui a un sens dans le dépôt où il
     # tourne — c'est ce qui évite une variante de générateur par dépôt.
-    bundled = os.path.join(ROOT, "src", "assets", "css")
-    if os.path.isdir(bundled):
-        outputs.append((os.path.join(bundled, "palette.css"), render_css(data)))
+    for served in (os.path.join(ROOT, "src", "assets", "css"),
+                   os.path.join(ROOT, "public", "assets", "css")):
+        if os.path.isdir(served):
+            outputs.append((os.path.join(served, "palette.css"), render_css(data)))
 
     geostyle = find_geostyle()
     if geostyle is not None:
