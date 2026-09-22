@@ -90,8 +90,14 @@ jobs:
       matrix:
         include:
           - os: windows-2022
+          # macOS Apple Silicon (arm64). Pas de macos-13 (Intel) : GitHub a
+          # retire ces machines. Le job restait EN FILE D'ATTENTE 24 h, puis
+          # etait annule — et, comme create-release-notes attend toute la
+          # matrice, les notes de v1.5.17, v1.5.18 et v1.5.19 sont sorties
+          # VIDES. Aucune version Mac Intel n'a d'ailleurs ete publiee depuis :
+          # retirer la ligne ne retire rien aux joueurs, elle debloque la fin
+          # de la release.
           - os: macos-15
-          - os: macos-13
           - os: ubuntu-22.04
 
     steps:
@@ -133,7 +139,12 @@ jobs:
 
   create-release-notes:
     needs: [prepare, build-launcher]
-    if: needs.prepare.outputs.release == 'true'
+    # !cancelled() : les notes s'ecrivent meme si UN systeme echoue. La release
+    # existe deja — chaque build la publie lui-meme (--publish always) — donc
+    # elle doit avoir ses notes. Avec la condition implicite success(), un seul
+    # build rate sautait ce job, et avec lui l'annonce au site qui en depend.
+    # Une annulation manuelle, elle, est respectee.
+    if: ${{ !cancelled() && needs.prepare.outputs.release == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       released: 'true'
