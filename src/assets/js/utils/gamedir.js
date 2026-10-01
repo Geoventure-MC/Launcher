@@ -72,4 +72,15 @@ function getGameDirectory(dataDirectory, config) {
     return path.join(base, 'instances', slug);
 }
 
-export { getGameDirectory, getBaseDirectory, isDefaultServer, slugify };
+/**
+ * Game directory of a GIVEN instance slug (not necessarily the selected one).
+ * Same rules as getGameDirectory: default instance -> legacy base dir.
+ */
+function getGameDirectoryFor(slug, dataDirectory, config) {
+    const base = getBaseDirectory(dataDirectory, config);
+    const def = getDefaultInstanceId();
+    if (!slug || (def && slug === def)) return base;
+    return path.join(base, 'instances', slugify(slug));
+}
+
+export { getGameDirectoryFor, getGameDirectory, getBaseDirectory, isDefaultServer, slugify };

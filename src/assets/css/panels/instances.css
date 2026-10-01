@@ -356,3 +356,104 @@
         flex-direction: row;
     }
 }
+
+/* ─── Install state chip (détection réelle) ───────────────────────────────── */
+
+.instance-state {
+    --state-color: rgba(240, 240, 242, 0.6);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    align-self: flex-start;
+    padding: 4px 12px 4px 8px;
+    border-radius: 20px;
+    font: 600 11px/1.4 'Poppins', sans-serif;
+    letter-spacing: 0.5px;
+    color: var(--state-color);
+    background: color-mix(in srgb, var(--state-color) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--state-color) 35%, transparent);
+    transition: color 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+}
+
+.instance-state.swap { animation: instanceStateSwap 0.35s ease; }
+
+@keyframes instanceStateSwap {
+    0% { opacity: 0; transform: translateY(4px) scale(0.96); }
+    100% { opacity: 1; transform: none; }
+}
+
+.instance-state-icon {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--state-color);
+}
+
+/* Analyse en cours : skeleton / shimmer */
+.instance-state.checking {
+    position: relative;
+    overflow: hidden;
+    min-width: 118px;
+}
+.instance-state.checking .instance-state-icon { opacity: 0.35; }
+.instance-state.checking::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.18) 50%, transparent 80%);
+    transform: translateX(-100%);
+    animation: instanceShimmer 1.2s ease-in-out infinite;
+}
+@keyframes instanceShimmer { to { transform: translateX(100%); } }
+
+/* Installé : coche animée */
+.instance-state.installed { --state-color: #4ade80; }
+.instance-state.installed .instance-state-icon { background: transparent; border: 2px solid var(--state-color); }
+.instance-state.installed .instance-state-icon::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 0px;
+    width: 3px;
+    height: 7px;
+    border: solid var(--state-color);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(0);
+    transform-origin: center;
+    animation: instanceCheck 0.4s 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes instanceCheck { to { transform: rotate(45deg) scale(1); } }
+
+/* À télécharger : pulsation */
+.instance-state.not-installed { --state-color: #fb923c; }
+.instance-state.not-installed .instance-state-icon { animation: instancePulse 1.8s ease-in-out infinite; }
+@keyframes instancePulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--state-color) 60%, transparent); }
+    70% { box-shadow: 0 0 0 8px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.instance-state.update-required { --state-color: #60a5fa; }
+.instance-state.incomplete { --state-color: #facc15; }
+
+.instances-offline {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font: 500 10px/1.5 'Poppins', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(240, 240, 242, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    animation: instanceStateSwap 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .instance-state *, .instance-state { animation: none !important; }
+    .instance-state.installed .instance-state-icon::after { transform: rotate(45deg) scale(1); }
+}
+
+/* ─── Pastilles serveur (accueil) : état d'installation ───────────────────── */

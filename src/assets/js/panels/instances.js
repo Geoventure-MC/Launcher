@@ -1,10 +1,10 @@
 'use strict';
 
 import { database, changePanel, t } from '../utils.js';
+import { getGameDirectoryFor } from '../utils/gamedir.js';
+import { getInstallState, invalidateInstallState } from '../utils/installstate.js';
 const { ipcRenderer } = require('electron');
 const pkg = require('../package.json');
-const fs = require('fs');
-const path = require('path');
 
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? `${process.env.HOME}/Library/Application Support` : process.env.HOME);
 
@@ -34,6 +34,23 @@ class Instances {
         this.database = await new database().init();
         this.renderGrid();
         this.initFooter();
+        this.watchPanelOpen();
+        window.addEventListener('nexus:install-state-changed', (e) => {
+            invalidateInstallState(e.detail && e.detail.slug);
+            this.refreshInstallStates();
+        });
+    }
+
+    // Ré-évalue l'état d'installation à chaque ouverture du panneau.
+    watchPanelOpen() {
+        const panel = document.querySelector('.instances');
+        if (!panel || typeof MutationObserver === 'undefined') return;
+        let wasActive = panel.classList.contains('active');
+        new MutationObserver(() => {
+            const active = panel.classList.contains('active');
+            if (active && !wasActive) this.refreshInstallStates();
+            wasActive = active;
+        }).observe(panel, { attributes: true, attributeFilter: ['class'] });
     }
 
     renderGrid() {
@@ -50,7 +67,6 @@ class Instances {
             card.className = 'instance-card';
             card.style.setProperty('--card-color', server.color || theme.color || '#fff');
 
-            const installed = this.isInstalled(server.id);
             const tags = (theme.tags || []).map(tag =>
                 `<span class="instance-tag">${this._esc(tag)}</span>`
             ).join('');
@@ -64,8 +80,12 @@ class Instances {
                     <div class="instance-name">${this._esc(server.name)}</div>
                     <div class="instance-desc">${this._esc(theme.desc || server.description || '')}</div>
                     ${tags ? `<div class="instance-tags">${tags}</div>` : ''}
-                    <button class="instance-action-btn ${installed ? 'play' : 'install'}" data-server-id="${this._esc(server.id)}">
-                        ${installed ? (t('play') || 'JOUER') : (t('install') || 'INSTALLER')}
+                    <div class="instance-state checking" data-state="checking" aria-live="polite">
+                        <span class="instance-state-icon"></span>
+                        <span class="instance-state-label">${this._esc(t('install_state_checking') || 'Vérification…')}</span>
+                    </div>
+                    <button class="instance-action-btn install" data-server-id="${this._esc(server.id)}">
+                        ${this._esc(t('instances_install') || 'INSTALLER')}
                     </button>
                 </div>
             `;
@@ -84,6 +104,77 @@ class Instances {
         });
 
         this.fetchStatuses(servers);
+        this.refreshInstallStates();
+    }
+
+    // Détection réelle (asynchrone, jamais bloquante) pour chaque instance.
+    async refreshInstallStates(force = false) {
+        const servers = pkg.servers || [];
+        // Skeleton/shimmer pendant l'analyse.
+        servers.forEach(server => this.applyInstallState(server.id, { state: 'checking' }));
+        let anyOffline = false;
+        await Promise.all(servers.map(async (server) => {
+            let result;
+            try {
+                result = await getInstallState({
+                    slug: server.id,
+                    gameDir: this.getGameDir(server.id),
+                    settingsUrl: server.settings || pkg.settings,
+                    env: pkg.env,
+                }, { force });
+            } catch {
+                result = { state: 'not_installed', offline: true };
+            }
+            if (result.offline) anyOffline = true;
+            this.applyInstallState(server.id, result);
+        }));
+        this.setOfflineNotice(anyOffline);
+    }
+
+    applyInstallState(serverId, result) {
+        const btn = document.querySelector(`.instance-action-btn[data-server-id="${serverId}"]`);
+        const card = btn && btn.closest('.instance-card');
+        if (!card) return;
+        const state = result.state;
+        const chip = card.querySelector('.instance-state');
+        const labels = {
+            checking: t('install_state_checking') || 'Vérification…',
+            installed: t('install_state_installed') || 'Installé',
+            not_installed: t('install_state_not_installed') || 'À télécharger',
+            incomplete: t('install_state_incomplete') || 'Incomplet',
+            update_required: t('install_state_update_required') || 'Mise à jour requise',
+        };
+        if (chip && chip.dataset.state !== state) {
+            chip.dataset.state = state;
+            chip.className = `instance-state ${state.replace('_', '-')}`;
+            chip.querySelector('.instance-state-label').textContent = labels[state] || '';
+            // Rejoue l'animation de transition de la pastille.
+            chip.classList.remove('swap');
+            void chip.offsetWidth;
+            chip.classList.add('swap');
+        }
+        card.dataset.installState = state;
+        if (state === 'checking') return;
+        const ready = state === 'installed' || state === 'update_required';
+        btn.classList.toggle('play', ready);
+        btn.classList.toggle('install', !ready);
+        btn.textContent = state === 'installed' ? (t('instances_play') || 'JOUER')
+            : state === 'update_required' ? (t('instances_update') || 'METTRE À JOUR')
+            : (t('instances_install') || 'INSTALLER');
+    }
+
+    setOfflineNotice(offline) {
+        const sub = document.getElementById('instances-subtitle');
+        if (!sub) return;
+        let el = document.getElementById('instances-offline');
+        if (!offline) { if (el) el.remove(); return; }
+        if (!el) {
+            el = document.createElement('span');
+            el.id = 'instances-offline';
+            el.className = 'instances-offline';
+            sub.insertAdjacentElement('afterend', el);
+        }
+        el.textContent = t('install_state_offline') || 'Hors ligne';
     }
 
     async fetchStatuses(servers) {
@@ -121,19 +212,8 @@ class Instances {
         }
     }
 
-    isInstalled(serverId) {
-        const gameDir = this.getGameDir(serverId);
-        return fs.existsSync(path.join(gameDir, 'mods')) || fs.existsSync(path.join(gameDir, 'versions'));
-    }
-
     getGameDir(serverId) {
-        const folderName = this.config?.dataDirectory || 'geoventure';
-        const base = process.platform === 'darwin'
-            ? path.join(dataDirectory, folderName)
-            : path.join(dataDirectory, `.${folderName}`);
-        const defaultId = (pkg.servers && pkg.servers.length) ? pkg.servers[0].id : null;
-        if (!serverId || serverId === defaultId) return base;
-        return path.join(base, 'instances', serverId);
+        return getGameDirectoryFor(serverId, dataDirectory, this.config || {});
     }
 
     selectServer(server) {

@@ -893,6 +893,11 @@ class Settings {
             }
         }
 
+        try {
+            window.dispatchEvent(new CustomEvent('nexus:install-state-changed', {
+                detail: { slug: localStorage.getItem('geoventure_selected_instance') || null },
+            }));
+        } catch { /* cosmétique */ }
         return { deleted };
     }
 

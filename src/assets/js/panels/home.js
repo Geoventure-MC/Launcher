@@ -10,7 +10,8 @@
 import { logger, database, changePanel, t } from '../utils.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
-import { getGameDirectory } from '../utils/gamedir.js';
+import { getGameDirectory, getGameDirectoryFor } from '../utils/gamedir.js';
+import { getInstallState, invalidateInstallState } from '../utils/installstate.js';
 import { withInstance } from '../utils/instance.js';
 import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
 import { isOfflineMode, offlineCacheDate, getAzAuthUrl } from '../utils/config.js';
@@ -88,6 +89,11 @@ class Home {
         this.initMaintenance();
         this.verifyModsBeforeLaunch();
         this.initServerSelector();
+        this.refreshPillInstallStates();
+        window.addEventListener('nexus:install-state-changed', (e) => {
+            invalidateInstallState(e.detail && e.detail.slug);
+            this.refreshPillInstallStates();
+        });
         this.initKeyboardShortcuts();
         this.initLogConsole();
         this.validateApiSchema();
@@ -209,6 +215,7 @@ class Home {
             try {
                 await this._doLaunch();
             } catch (err) {
+                this._pillProgressEnd();
                 console.error('Launch failed:', err);
                 this.handleLaunchError(err);
             }
@@ -373,6 +380,7 @@ class Home {
         launch.on('progress', (progress, size, file) => {
             if (file) this.currentFile = file;
             this._setPhase('download');
+            this._pillProgress(progress, size);
             this.updateProgressBar(progressBar, info, progress, size, t('download'));
         });
         launch.on('check', (progress, size, file) => {
@@ -530,6 +538,10 @@ class Home {
     }
 
     handleLaunchData(e, info, progressBar, playBtn, launcherSettings) {
+        if (!this._installStateRefreshed) {
+            this._installStateRefreshed = true;
+            this._pillProgressEnd();
+        }
         new logger('Minecraft', '#36b030');
         if (launcherSettings.launcher.close === 'close-launcher') ipcRenderer.send("main-window-hide");
         ipcRenderer.send('main-window-progress-reset');
@@ -557,6 +569,8 @@ class Home {
     }
 
     handleLaunchClose(code, info, progressBar, playBtn, launcherSettings) {
+        this._installStateRefreshed = false;
+        this._pillProgressEnd();
         if (launcherSettings.launcher.close === 'close-launcher') ipcRenderer.send("main-window-show");
         progressBar.style.display = "none";
         info.style.display = "none";
@@ -1173,6 +1187,67 @@ class Home {
 
             container.appendChild(pill);
         });
+    }
+
+    // Vraie détection de l'état d'installation de chaque instance (async,
+    // jamais bloquante ; hors-ligne => état déduit du disque).
+    async refreshPillInstallStates() {
+        const servers = pkg.servers || [];
+        const labels = {
+            checking: t('install_state_checking') || 'Vérification…',
+            installed: t('install_state_installed') || 'Installé',
+            not_installed: t('install_state_not_installed') || 'À télécharger',
+            incomplete: t('install_state_incomplete') || 'Incomplet',
+            update_required: t('install_state_update_required') || 'Mise à jour requise',
+        };
+        const pills = new Map();
+        servers.forEach(server => {
+            const pill = document.querySelector(`.server-pill[data-server-id="${server.id}"]`);
+            if (!pill) return;
+            pills.set(server.id, pill);
+            if (pill.dataset.installState !== 'downloading') pill.dataset.installState = 'checking';
+        });
+        await Promise.all(servers.map(async (server) => {
+            const pill = pills.get(server.id);
+            if (!pill) return;
+            try {
+                const res = await getInstallState({
+                    slug: server.id,
+                    gameDir: getGameDirectoryFor(server.id, dataDirectory, this.config),
+                    settingsUrl: server.settings || settings_url,
+                    env: pkg.env,
+                });
+                if (pill.dataset.installState === 'downloading') return;
+                pill.dataset.installState = res.state;
+                const base = pill.dataset.baseTitle || pill.title.split('\n')[0];
+                pill.dataset.baseTitle = base;
+                pill.title = `${base}\n${labels[res.state] || ''}${res.offline ? ` · ${t('install_state_offline') || 'Hors ligne'}` : ''}`;
+            } catch {
+                pill.removeAttribute('data-install-state');
+            }
+        }));
+    }
+
+    // Progression d'un téléchargement en cours sur la pastille de l'instance active.
+    _pillProgress(progress, size) {
+        try {
+            const id = localStorage.getItem('geoventure_selected_instance') || (pkg.servers && pkg.servers[0] && pkg.servers[0].id);
+            const pill = document.querySelector(`.server-pill[data-server-id="${id}"]`);
+            if (!pill || !size) return;
+            pill.dataset.installState = 'downloading';
+            pill.style.setProperty('--pill-progress', String(Math.min(100, Math.round((progress / size) * 100))));
+        } catch { /* cosmétique */ }
+    }
+
+    _pillProgressEnd() {
+        try {
+            document.querySelectorAll('.server-pill[data-install-state="downloading"]').forEach(p => {
+                p.removeAttribute('data-install-state');
+                p.style.removeProperty('--pill-progress');
+            });
+            const slug = localStorage.getItem('geoventure_selected_instance') || (pkg.servers && pkg.servers[0] && pkg.servers[0].id);
+            window.dispatchEvent(new CustomEvent('nexus:install-state-changed', { detail: { slug } }));
+        } catch { /* cosmétique */ }
     }
 
     _showPillPlayersTooltip(pill, serverId) {
