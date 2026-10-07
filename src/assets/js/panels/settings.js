@@ -12,6 +12,7 @@ import { isConsented, setConsent } from '../utils/telemetry.js';
 import * as desktopNotify from '../utils/desktopNotify.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
+import { getAzAuthUrl } from '../utils/config.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -39,7 +40,8 @@ class Settings {
         this.initAccount();
         this.initRam();
         this.initLauncherSettings();
-        this.updateModsConfig();
+        // Panel en 502/JSON invalide : ne doit jamais produire de rejet de promesse non géré.
+        this.updateModsConfig().catch(err => console.warn('[settings] updateModsConfig:', err.message || err));
         this.initOptionalMods();
         this.headplayer();
         this.initSkinDropzone();
@@ -753,12 +755,8 @@ class Settings {
     }
 
     getAzAuthUrl() {
-        const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        return pkg.env === 'azuriom'
-            ? baseUrl
-            : this.config.azauth.endsWith('/')
-                ? this.config.azauth
-                : `${this.config.azauth}/`;
+        // Garde-fou azauth null/absent partagé avec les autres panneaux (utils/config.js).
+        return getAzAuthUrl(this.config);
     }
 
     initAdvanced() {

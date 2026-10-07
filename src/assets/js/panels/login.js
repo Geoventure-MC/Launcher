@@ -21,7 +21,8 @@ class Login {
         this.config = config;
         this.database = await new database().init();
         this.setStaticTexts();
-        this.config.online ? this.getOnline() : this.getOffline();
+        // Seul AZauth est supporté (getOffline n'a jamais existé : config.online absent => TypeError).
+        this.getOnline();
     }
 
     setStaticTexts() {
