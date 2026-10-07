@@ -6,3 +6,6 @@ dist
 node-v*
 AppData
 .claude/
+tests/e2e/screenshots/
+tests/e2e/.tmp/
+test-results/
