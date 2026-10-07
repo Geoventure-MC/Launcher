@@ -7,7 +7,7 @@ let mock;
 test.beforeAll(async () => { mock = await startMock(); });
 test.afterAll(async () => { await mock.close(); });
 
-const fatal = (logs) => logs.filter(l => l.type === 'pageerror' || /Uncaught|TypeError|ReferenceError|is not a function|Cannot read/.test(l.text));
+const fatal = (logs) => logs.filter(l => l.type === 'pageerror' || /Uncaught|TypeError|ReferenceError|is not a function|Cannot read/.test(l.text)).map(l => ({ ...l, text: l.text + (l.stack ? '\n' + l.stack.split('\n').slice(0, 4).join('\n') : '') }));
 
 test.describe('démarrage', () => {
   test('Electron démarre, charge launcher.html et affiche le sélecteur d\'instances (1er lancement)', async () => {
@@ -95,5 +95,65 @@ test.describe('état d\'installation des instances', () => {
       await panelActive(L.win, 'home');
       await expect.poll(() => pillState(L.win, 'geoventure'), { timeout: 15000 }).toBe('update_required');
     } finally { await L.close(); }
+  });
+});
+
+test.describe('résilience aux erreurs du panel', () => {
+  test('502 HTML avec cache de config : mode hors-ligne, pas de crash', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');           // 1er chargement OK : la config est mise en cache
+      mock.setMode('html502');
+      L.logs.length = 0;
+      await L.win.reload();
+      await panelActive(L.win, 'home');
+      await expect(L.win.locator('#offline-badge')).toBeVisible({ timeout: 10000 });
+      await shot(L.win, 'home-502-horsligne');
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+      // aucune pastille ne reste bloquée dans « vérification »
+      await expect.poll(() => L.win.locator('.server-pill[data-install-state="checking"]').count(), { timeout: 15000 }).toBe(0);
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+
+  test('502 HTML sans cache : message clair, pas d\'exception', async () => {
+    mock.setMode('html502');
+    const L = await launchLauncher(mock);
+    try {
+      await expect(L.win.locator('#preload-title')).toContainText(/Impossible de joindre le serveur/, { timeout: 15000 });
+      await shot(L.win, 'preload-502');
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+
+  test('panel coupé (socket détruit) sans cache : message clair', async () => {
+    mock.setMode('down');
+    const L = await launchLauncher(mock);
+    try {
+      await expect(L.win.locator('#preload-title')).toContainText(/Impossible de joindre le serveur/, { timeout: 15000 });
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+
+  test('JSON vide ({} / []) : le launcher ne plante pas', async () => {
+    mock.setMode('empty');
+    const L = await launchLauncher(mock);
+    try {
+      await L.win.waitForTimeout(6000);
+      await shot(L.win, 'home-json-vide');
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+
+  test('azauth null : repli sur l\'URL du panel, connexion/profil sans exception', async () => {
+    mock.setMode('azauthnull');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      await L.win.waitForTimeout(2000);
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+      // l'avatar ne doit jamais viser une URL « null/ »
+      expect(mock.hits.some(h => /null/.test(h.path))).toBeFalsy();
+    } finally { mock.setMode('ok'); await L.close(); }
   });
 });

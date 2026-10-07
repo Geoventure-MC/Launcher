@@ -35,7 +35,7 @@ export async function launchLauncher(mock, { account = true, instance = 'geovent
   const win = await app.firstWindow();
   const logs = [];
   win.on('console', m => logs.push({ type: m.type(), text: m.text() }));
-  win.on('pageerror', e => logs.push({ type: 'pageerror', text: e.message }));
+  win.on('pageerror', e => logs.push({ type: 'pageerror', text: e.message, stack: e.stack }));
   await win.waitForLoadState('domcontentloaded');
   await seed(win, mock, { account, instance, telemetry });
   await win.reload();
