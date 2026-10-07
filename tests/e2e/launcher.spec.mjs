@@ -34,3 +34,66 @@ test.describe('démarrage', () => {
     } finally { await L.close(); }
   });
 });
+
+test.describe('home (panel OK)', () => {
+  let L;
+  test.beforeAll(async () => { mock.setMode('ok'); L = await launchLauncher(mock); await panelActive(L.win, 'home'); await L.win.waitForSelector('.server-pill[data-install-state]', { timeout: 15000 }); });
+  test.afterAll(async () => { await L?.close(); });
+
+  test('pastilles serveurs : 3 instances, état « à télécharger », joueurs en ligne', async () => {
+    await expect(L.win.locator('.server-pill')).toHaveCount(3);
+    for (const id of ['geoventure', 'elandor', 'pokeland']) await expect.poll(() => pillState(L.win, id)).toBe('not_installed');
+    const title = await L.win.locator('.server-pill[data-server-id="geoventure"]').getAttribute('title');
+    expect(title).toContain('7');
+    await expect(L.win.locator('.server-text .desc')).toContainText('42');
+    await shot(L.win, 'home-ok');
+  });
+
+  test('bandeau de notifications : 2 annonces, HTML échappé, lien et fermeture', async () => {
+    const banner = L.win.locator('#notifications-banner');
+    await expect(banner).toBeVisible();
+    await expect(banner.locator('.notification-item')).toHaveCount(2);
+    await expect(banner.locator('.notification-maintenance')).toContainText('Maintenance samedi 3h');
+    expect(await banner.locator('b').count()).toBe(0); // <b> du message doit rester du texte
+    await expect(banner.locator('.notification-event')).toContainText('<b>Wonder</b>');
+    await banner.locator('.notification-item').first().locator('.notif-close').click();
+    await expect(banner.locator('.notification-item')).toHaveCount(1);
+  });
+
+  test('contrat réseau : appels avec ?instance=geoventure vers le panel', async () => {
+    const paths = mock.hits.map(h => h.path + h.query);
+    expect(paths.some(p => p.startsWith('/utils/api?instance=geoventure'))).toBeTruthy();
+    expect(paths.some(p => p.startsWith('/data?instance=geoventure'))).toBeTruthy();
+    expect(paths).toContain('/utils/servers-status?instance=geoventure');
+    expect(mock.hits.filter(h => h.path === '/utils/telemetry')).toHaveLength(0); // opt-in : rien sans consentement
+  });
+
+  test('aucune erreur JS non gérée', async () => {
+    expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+  });
+});
+
+test.describe('état d\'installation des instances', () => {
+  test('installé / mise à jour requise / incomplet / à télécharger', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      installGame(L.home, 'geoventure');                        // complet
+      installGame(L.home, 'elandor', { modpack: false });         // moteur ok, aucun fichier du modpack -> incomplet
+      const pk = gameDirFor(L.home, 'pokeland');
+      fs.mkdirSync(pk + '/libraries/a', { recursive: true });   // quelques libs seulement -> incomplet
+      fs.writeFileSync(pk + '/libraries/a/b.jar', 'x');
+      await L.win.reload();
+      await panelActive(L.win, 'home');
+      await expect.poll(() => pillState(L.win, 'geoventure'), { timeout: 15000 }).toBe('installed');
+      await expect.poll(() => pillState(L.win, 'elandor')).toBe('incomplete');
+      await expect.poll(() => pillState(L.win, 'pokeland')).toBe('incomplete');
+      await shot(L.win, 'home-installe');
+
+      fs.writeFileSync(gameDirFor(L.home, 'geoventure') + '/mods/geocore.jar', 'TRONQUE'); // taille différente
+      await L.win.reload();
+      await panelActive(L.win, 'home');
+      await expect.poll(() => pillState(L.win, 'geoventure'), { timeout: 15000 }).toBe('update_required');
+    } finally { await L.close(); }
+  });
+});
