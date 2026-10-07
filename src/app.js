@@ -72,6 +72,25 @@ ipcMain.handle('save-logs-dialog', async () => {
     return res && !res.canceled ? res.filePath : null;
 })
 
+// GPU (informations de base) pour les profils de performance et le diagnostic. Jamais bloquant : délai de 3 s.
+ipcMain.handle('get-gpu-info', async () => {
+    try {
+        const info = await Promise.race([
+            app.getGPUInfo('basic'),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000)),
+        ]);
+        const devs = Array.isArray(info && info.gpuDevice) ? info.gpuDevice : [];
+        const dev = devs.find(d => d.active) || devs[0] || {};
+        const aux = (info && info.auxAttributes) || {};
+        const hex = n => (typeof n === 'number' ? '0x' + n.toString(16).padStart(4, '0') : null);
+        const name = aux.glRenderer || [dev.driverVendor, dev.vendorString, dev.deviceString].filter(Boolean).join(' ')
+            || (dev.vendorId != null ? `vendor ${hex(dev.vendorId)} device ${hex(dev.deviceId)}` : '');
+        return { name: name || null, count: devs.length };
+    } catch (e) {
+        return { name: null, count: 0, error: String(e && e.message || e) };
+    }
+})
+
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
