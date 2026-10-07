@@ -110,3 +110,22 @@ progress::-webkit-progress-value {
     background-color: rgb(0, 255, 55);
     border-radius: 10px;
 }
+/* Boutons de l'écran de mise à jour (macOS / Linux hors AppImage) */
+.download-update {
+    display: inline-block;
+    margin: 12px 8px 0;
+    padding: 8px 20px;
+    border-radius: 8px;
+    background: #4ade80;
+    color: #0b1410;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    transition: filter .15s, transform .15s;
+}
+.download-update:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.download-update.skip-update {
+    background: transparent;
+    color: #c9d1d9;
+    border: 1px solid rgba(255, 255, 255, .25);
+}

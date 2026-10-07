@@ -66,7 +66,11 @@ class Splash {
 
         ipcRenderer.on('updateAvailable', () => {
             this.setStatus(`Mise à jour disponible !`);
-            if (os.platform() == 'win32') {
+            // Windows : mise à jour automatique. Linux en AppImage : electron-updater sait aussi
+            // remplacer l'AppImage (variable APPIMAGE posée par le lanceur) → même chemin, avec
+            // barre de progression. Les autres cas (macOS, .deb, dossier décompressé) restent manuels.
+            const auto = os.platform() == 'win32' || (os.platform() == 'linux' && !!process.env.APPIMAGE);
+            if (auto) {
                 this.toggleProgress();
                 ipcRenderer.send('start-update');
             }
@@ -98,29 +102,35 @@ class Splash {
     }
 
     async dowloadUpdate() {
+        // Ne JAMAIS laisser l'écran figé sur « Mise à jour disponible ! » : toute erreur (réseau, limite
+        // de débit de l'API GitHub, asset absent) retombe sur la page des releases + bouton « Continuer ».
         const repoURL = pkg.repository.url.replace("git+", "").replace(".git", "").replace("https://github.com/", "").split("/");
-        const githubAPI = await nodeFetch('https://api.github.com').then(res => res.json()).catch(err => err);
-
-        const githubAPIRepoURL = githubAPI.repository_url.replace("{owner}", repoURL[0]).replace("{repo}", repoURL[1]);
-        const githubAPIRepo = await nodeFetch(githubAPIRepoURL).then(res => res.json()).catch(err => err);
-
-        const releases_url = await nodeFetch(githubAPIRepo.releases_url.replace("{/id}", '')).then(res => res.json()).catch(err => err);
-        if (!Array.isArray(releases_url) || releases_url.length === 0 || !releases_url[0].assets) {
-            console.error("Impossible de récupérer les releases GitHub:", releases_url);
-            return this.startLauncher();
+        const releasesPage = `https://github.com/${repoURL[0]}/${repoURL[1]}/releases/latest`;
+        let url = releasesPage;
+        try {
+            const res = await nodeFetch(`https://api.github.com/repos/${repoURL[0]}/${repoURL[1]}/releases/latest`);
+            if (res.ok) {
+                const latestRelease = await res.json();
+                const assets = Array.isArray(latestRelease.assets) ? latestRelease.assets : [];
+                let found;
+                if (os.platform() == 'darwin') found = this.getLatestReleaseForOS('mac', '.dmg', assets);
+                else if (os.platform() == 'linux') found = this.getLatestReleaseForOS('linux', '.appimage', assets);
+                if (found && found.browser_download_url) url = found.browser_download_url;
+            } else {
+                console.error("Releases GitHub indisponibles :", res.status);
+            }
+        } catch (err) {
+            console.error("Impossible de récupérer les releases GitHub :", err && err.message ? err.message : err);
         }
-        const latestRelease = releases_url[0].assets;
-        let latest;
 
-        if (os.platform() == 'darwin') latest = this.getLatestReleaseForOS('mac', '.dmg', latestRelease);
-        else if (os.platform() == 'linux') latest = this.getLatestReleaseForOS('linux', '.appimage', latestRelease);
-
-
-        this.setStatus(`Mise à jour disponible !<br><div class="download-update">Télécharger</div>`);
-        document.querySelector(".download-update").addEventListener("click", () => {
-            shell.openExternal(latest.browser_download_url);
+        this.setStatus(`Mise à jour disponible !<br><div class="download-update">Télécharger</div><div class="download-update skip-update">Continuer</div>`);
+        const dl = document.querySelector(".download-update:not(.skip-update)");
+        const skip = document.querySelector(".skip-update");
+        if (dl) dl.addEventListener("click", () => {
+            shell.openExternal(url);
             return this.shutdown("Téléchargement en cours...");
         });
+        if (skip) skip.addEventListener("click", () => this.maintenanceCheck());
     }
 
 
