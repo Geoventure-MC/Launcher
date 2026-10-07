@@ -71,6 +71,7 @@ class Splash {
             // barre de progression. Les autres cas (macOS, .deb, dossier décompressé) restent manuels.
             const auto = os.platform() == 'win32' || (os.platform() == 'linux' && !!process.env.APPIMAGE);
             if (auto) {
+                this.updateDownloading = true;
                 this.toggleProgress();
                 ipcRenderer.send('start-update');
             }
@@ -78,7 +79,13 @@ class Splash {
         })
 
         ipcRenderer.on('error', (event, err) => {
-            if (err) return this.shutdown(`${err.message}`);
+            if (!err) return;
+            // Une erreur de l'outil de mise à jour (ex. « APPIMAGE env is not defined » hors AppImage,
+            // réseau, flux de releases absent) ne doit JAMAIS arrêter le launcher tant qu'aucun
+            // téléchargement n'est en cours : on journalise et on continue le démarrage.
+            console.error('Erreur de mise à jour :', err.message || err);
+            if (this.updateDownloading) return this.shutdown(`${err.message}`);
+            return this.maintenanceCheck();
         })
 
         ipcRenderer.on('download-progress', (event, progress) => {
@@ -135,6 +142,8 @@ class Splash {
 
 
     async maintenanceCheck() {
+        if (this.started) return; // idempotent : erreur de mise à jour + « pas de mise à jour » ne démarrent qu'une fois
+        this.started = true;
         // En maintenance, on n'arrête plus le launcher : on l'ouvre normalement
         // et le panneau d'accueil affiche le bandeau + bloque le bouton Jouer
         // (voir initMaintenance() dans panels/home.js). Seule une vraie erreur
