@@ -244,3 +244,84 @@ test.describe('réglages', () => {
     } finally { mock.setMode('ok'); await L.close(); }
   });
 });
+
+test.describe('profil', () => {
+  test('classement, saison, factions, succès (secret masqué), skin 3D', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      await L.win.locator('#profile-btn').click();
+      await panelActive(L.win, 'profile');
+      await expect(L.win.locator('#profile-player-name')).toContainText('E2EPlayer');
+      await expect(L.win.locator('#profile-leaderboard')).toContainText('Alice', { timeout: 10000 });
+      await expect(L.win.locator('#profile-leaderboard')).toContainText('Bob');
+      await expect(L.win.locator('#profile-leaderboard')).not.toContainText('undefined');
+      await expect(L.win.locator('#profile-stats')).not.toContainText('undefined');
+      await expect(L.win.locator('#profile-factions')).toContainText('Les Bâtisseurs');
+      await expect(L.win.locator('#profile-season-banner')).toBeVisible();
+      await expect(L.win.locator('#profile-season-banner')).toContainText('Saison 3');
+      await expect(L.win.locator('#profile-achievements')).toContainText('Premier pas');
+      await expect(L.win.locator('#profile-achievements')).toContainText('???');
+      await expect(L.win.locator('#profile-achievements')).not.toContainText('hidden_one');
+      await expect(L.win.locator('#profile-skin-viewer')).toHaveAttribute('src', /skin3d\/3d-api\/skin-api\/E2EPlayer/, { timeout: 10000 });
+      await shot(L.win, 'profile');
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { await L.close(); }
+  });
+
+  test('profil avec JSON vides : états vides sans exception', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      mock.setMode('empty');
+      await L.win.locator('#profile-btn').click();
+      await panelActive(L.win, 'profile');
+      await L.win.waitForTimeout(2500);
+      await shot(L.win, 'profile-vide');
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+
+  test('profil avec panel en 502 : pas d\'exception', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      mock.setMode('html502');
+      await L.win.locator('#profile-btn').click();
+      await panelActive(L.win, 'profile');
+      await L.win.waitForTimeout(2500);
+      await shot(L.win, 'profile-502');
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+
+  test('changement de skin : PNG 64x64 envoyé en multipart avec le jeton', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      await L.win.locator('#profile-btn').click();
+      await panelActive(L.win, 'profile');
+      // PNG 64x64 valide généré dans la page.
+      const png = await L.win.evaluate(async () => {
+        const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+        c.getContext('2d').fillStyle = '#3a6'; c.getContext('2d').fillRect(0, 0, 64, 64);
+        const b = await new Promise(r => c.toBlob(r, 'image/png'));
+        return Array.from(new Uint8Array(await b.arrayBuffer()));
+      });
+      const f = require_tmp(L.tmp, 'skin.png', Buffer.from(png));
+      mock.clearHits();
+      await L.win.locator('#profile-skin-file').setInputFiles(f);
+      await expect.poll(() => mock.hits.some(h => h.path === '/api/skin-api/skins/update'), { timeout: 10000 }).toBeTruthy();
+      const hit = mock.hits.find(h => h.path === '/api/skin-api/skins/update');
+      expect(hit.method).toBe('POST');
+      expect(hit.body).toContain('tok-e2e');
+      await shot(L.win, 'profile-skin-change');
+    } finally { await L.close(); }
+  });
+});
+
+function require_tmp(dir, name, buf) { const p = dir + '/' + name; fs.writeFileSync(p, buf); return p; }

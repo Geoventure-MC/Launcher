@@ -43,12 +43,12 @@ export const FIXTURES = {
     { id: 2, type: 'event', message: 'Tournoi <b>Wonder</b> ce soir', url: null, expiresAt: null, createdAt: 1790000100000 },
   ],
   achievements: [
-    { code: 'first_launch', name: 'Premier pas', description: 'Lancer le jeu', icon: 'star', points: 10, rarity: 'common', category: 'Premiers pas', condition_type: 'first_launch', condition_value: 1, secret: false, max_level: 1 },
-    { code: 'regular', name: 'Habitué', description: 'Lancer 10 fois le jeu', icon: 'play', points: 20, rarity: 'uncommon', category: 'Premiers pas', condition_type: 'launch_count', condition_value: 10, secret: false, max_level: 3 },
-    { code: 'explorer', name: 'Explorateur', description: 'Essayer 3 instances', icon: 'map', points: 30, rarity: 'rare', category: 'Aventure', condition_type: 'instances_tried', condition_value: 3, secret: false, max_level: 1 },
+    { code: 'first_launch', name: 'Premier pas', description: 'Lancer le jeu', icon: 'bi-star-fill', points: 10, rarity: 'common', category: 'Premiers pas', condition_type: 'first_launch', condition_value: 1, secret: false, max_level: 1 },
+    { code: 'regular', name: 'Habitué', description: 'Lancer 10 fois le jeu', icon: '▶', points: 20, rarity: 'uncommon', category: 'Premiers pas', condition_type: 'launch_count', condition_value: 10, secret: false, max_level: 3 },
+    { code: 'explorer', name: 'Explorateur', description: 'Essayer 3 instances', icon: '🗺️', points: 30, rarity: 'rare', category: 'Aventure', condition_type: 'instances_tried', condition_value: 3, secret: false, max_level: 1 },
     { code: 'hidden_one', name: '???', description: '', icon: null, points: 50, rarity: 'legendary', category: 'Secrets', condition_type: 'manual', condition_value: null, secret: true, max_level: 1 },
   ],
-  leaderboards: [{ name: 'Alice', coins: 12000 }, { name: 'Bob', coins: 8000 }, { name: 'E2EPlayer', coins: 500 }],
+  leaderboards: [{ rank: 1, name: 'Alice', coins: 12000 }, { rank: 2, name: 'Bob', coins: 8000 }, { rank: 3, name: 'E2EPlayer', coins: 500 }],
   factions: [{ name: 'Les Bâtisseurs', members: 12, power: 340, color: '#3366ff' }],
   seasons: { current: { id: 3, name: 'Saison 3', startsAt: 1790000000000, endsAt: 1795000000000, standings: [{ name: 'Les Bâtisseurs', points: 120 }] }, past: [] },
   statuses: (on) => [

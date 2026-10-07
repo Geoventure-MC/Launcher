@@ -155,3 +155,11 @@ Correctifs livrés suite aux erreurs d'une session launcher live (502/404/double
 
 - Installer & Launcher : `claude/friendly-tesla-7kNM4` (mais le user pousse souvent le launcher direct sur `master`).
 - Panel : nouveau repo — créer une branche dédiée (ex: `claude/...`) et ouvrir une **PR draft**.
+
+## Tests E2E (Playwright + vrai Electron, 2026-10-07)
+
+`npm ci && npm run test:e2e` (lance `xvfb-run -a playwright test` si pas de `DISPLAY` ; l'Electron 37 du `node_modules` est utilisé via `_electron.launch` avec `--no-sandbox`). Tout est local, aucun workflow GitHub Actions. Si le binaire Electron manque : `node node_modules/electron/install.js`.
+- `tests/e2e/mock-panel.mjs` = faux panel HTTP (port 8790) : `/utils/*`, `/data`, AZauth (`/api/auth/*`), skins, RSS. Modes commutables à chaud : `ok`, `html502`, `empty`, `azauthnull`, `down`. Les formes viennent du vrai panel (ex. `/utils/leaderboards` DOIT porter `rank`, `/utils/mods.mods` est indexé par nom de fichier).
+- `helpers.mjs` : un Electron par test dans un dossier jetable (`HOME` isolé = dossier de jeu, `AppData` dans le cwd), `localStorage`/IndexedDB amorcés (instance + compte AZauth), et le domaine `https://launcher.geoventure.fr/` des `pkg.servers[].settings` est redirigé vers le mock depuis le processus principal. `prepare(home)` crée un dossier de jeu AVANT l'init des panneaux (la liste des mods est décidée à l'init).
+- `launcher.spec.mjs` : démarrage/instances/connexion, home (pastilles, états Installé/À télécharger/Incomplet/Mise à jour requise, bandeau d'annonces échappé, `?instance=`), résilience (502 HTML avec/sans cache, socket coupé, JSON vide, azauth null), réglages (mods, réparation 1 clic, path traversal), profil (classement, saison, factions, succès secrets, skin 3D, upload de skin). Captures dans `tests/e2e/screenshots/` (gitignorées).
+- Limites : les ressources externes https (cdnjs, Google Fonts, api.github.com) échouent en CI sandbox (proxy MITM, `ERR_CERT_AUTHORITY_INVALID`) : sans effet sur les assertions. Lancement du jeu (Minecraft/Java) et connexion Microsoft non testés.
