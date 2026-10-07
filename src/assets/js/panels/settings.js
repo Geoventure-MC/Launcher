@@ -455,6 +455,7 @@ class Settings {
                   </div>
                 </div>
                 <hr>`;
+                modsListElement.appendChild(modElement); // sans cet ajout, le message d'erreur admin n'apparaissait jamais
                 return;
             }
 
