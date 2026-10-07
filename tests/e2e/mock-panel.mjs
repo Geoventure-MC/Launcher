@@ -56,14 +56,15 @@ export const FIXTURES = {
     { id: 'elandor', server_id: 1001, name: 'Elandor', ip: '127.0.0.1', port: 25998, online: false, players: null, max_players: null, version: null, latency: null, is_default: false },
     { id: 'pokeland', server_id: 1002, name: 'Pokeland', ip: '127.0.0.1', port: 25997, online: true, players: 3, max_players: 50, version: '1.20.1', latency: 80, is_default: false },
   ],
-  mods: { optionalMods: [], mods: [{ id: 1, name: 'Mini-carte', description: 'Une minicarte', icon: null, file: 'minimap.jar', url: 'x', size: 1000, default: true, instance: null }] },
+  mods: { optionalMods: ['minimap.jar', 'ghost.jar'], mods: { 'minimap.jar': { name: 'Mini-carte', description: 'Une minicarte', icon: null, recommanded: true } } },
   changelog: [], launcherContent: { news_banners: [], shortcuts: [], discover: [] }, scheduledEvents: [],
   history: { points: [], peakHours: [] },
 };
 
 export async function startMock(port = MOCK_PORT) {
   let mode = 'ok';
-  let manifest = MANIFEST_FILES.map(f => ({ path: f.path, size: Buffer.byteLength(f.content), hash: crypto.createHash('sha1').update(f.content).digest('hex'), url: `http://127.0.0.1:${port}/storage/data/${f.path}` }));
+  const defaultManifest = MANIFEST_FILES.map(f => ({ path: f.path, size: Buffer.byteLength(f.content), hash: crypto.createHash('sha1').update(f.content).digest('hex'), url: `http://127.0.0.1:${port}/storage/data/${f.path}` }));
+  let manifest = defaultManifest;
   const hits = [];
   let base = `http://127.0.0.1:${port}/`;
   const json = (res, code, body, extra = {}) => { res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', ...extra }); res.end(JSON.stringify(body)); };
@@ -121,7 +122,7 @@ export async function startMock(port = MOCK_PORT) {
   await new Promise(r => server.listen(port, '127.0.0.1', r));
   return {
     url: base, setMode: m => { mode = m; }, hits, clearHits: () => { hits.length = 0; },
-    setManifest: m => { manifest = m; },
+    setManifest: m => { manifest = m ?? defaultManifest; },
     close: () => new Promise(r => { server.closeAllConnections?.(); server.close(r); }),
   };
 }

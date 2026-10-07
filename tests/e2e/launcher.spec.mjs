@@ -157,3 +157,90 @@ test.describe('résilience aux erreurs du panel', () => {
     } finally { mock.setMode('ok'); await L.close(); }
   });
 });
+
+async function openSettings(win, tab) {
+  await win.locator('#settings-btn').click();
+  await panelActive(win, 'settings');
+  if (tab) await win.locator(`#${tab}-tab`).click();
+}
+
+test.describe('réglages', () => {
+  test('mods optionnels listés depuis /utils/mods?instance=, onglet Avancé et réparation', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock, { prepare: (home) => installGame(home, 'geoventure') });
+    try {
+      await panelActive(L.win, 'home');
+      const dir = gameDirFor(L.home, 'geoventure');
+      // Corruption : taille différente (supprimé), un fichier valide (conservé) et un hors-manifeste (conservé).
+      fs.writeFileSync(dir + '/mods/geocore.jar', 'CORROMPU!!');
+      fs.writeFileSync(dir + '/mods/perso.jar', 'mod du joueur');
+      await openSettings(L.win, 'mods');
+      await expect(L.win.locator('#mods-list')).toContainText('Mini-carte');
+      await expect(L.win.locator('#mods-list')).toContainText('ghost.jar'); // mod optionnel sans fiche : message admin visible
+      await shot(L.win, 'settings-mods');
+      expect(mock.hits.some(h => h.path === '/utils/mods' && h.query.includes('instance=geoventure'))).toBeTruthy();
+
+      await L.win.locator('#advanced-tab').click();
+      L.win.on('dialog', d => d.accept());
+      await L.win.evaluate(() => { window.confirm = () => true; });
+      await L.win.locator('#repair-btn').click();
+      await expect(L.win.locator('#repair-status')).toBeVisible();
+      await expect(L.win.locator('#repair-status')).toHaveClass(/repair-status-ok/, { timeout: 15000 });
+      await shot(L.win, 'settings-reparation');
+      expect(fs.existsSync(dir + '/mods/geocore.jar')).toBeFalsy();          // corrompu : supprimé
+      expect(fs.existsSync(dir + '/config/geo.toml')).toBeTruthy();          // valide : conservé
+      expect(fs.existsSync(dir + '/mods/perso.jar')).toBeTruthy();           // hors manifeste : jamais touché
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { await L.close(); }
+  });
+
+  test('réparation : panel en 502 -> erreur affichée, aucun fichier supprimé', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      const dir = installGame(L.home, 'geoventure');
+      fs.writeFileSync(dir + '/mods/geocore.jar', 'CORROMPU!!');
+      mock.setMode('html502');
+      await openSettings(L.win, 'advanced');
+      await L.win.evaluate(() => { window.confirm = () => true; });
+      await L.win.locator('#repair-btn').click();
+      await expect(L.win.locator('#repair-status')).toHaveClass(/repair-status-error/, { timeout: 15000 });
+      expect(fs.existsSync(dir + '/mods/geocore.jar')).toBeTruthy();
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+
+  test('réparation : tentative de path traversal dans le manifeste ignorée', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      const dir = installGame(L.home, 'geoventure');
+      const victim = L.home + '/victime.txt';
+      fs.writeFileSync(victim, 'ne pas supprimer');
+      mock.setManifest([{ path: '../victime.txt', size: 1, hash: 'x', url: 'x' }]);
+      await openSettings(L.win, 'advanced');
+      await L.win.evaluate(() => { window.confirm = () => true; });
+      await L.win.locator('#repair-btn').click();
+      await expect(L.win.locator('#repair-status')).toHaveClass(/repair-status-ok/, { timeout: 15000 });
+      expect(fs.existsSync(victim)).toBeTruthy();
+      expect(fs.existsSync(dir + '/config/geo.toml')).toBeTruthy();
+    } finally { mock.setManifest(undefined); await L.close(); }
+  });
+
+  test('mods en 502 : onglet Mods sans exception', async () => {
+    mock.setMode('ok');
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      mock.setMode('html502');
+      L.logs.length = 0;
+      await L.win.reload();
+      await panelActive(L.win, 'home');
+      await openSettings(L.win, 'mods');
+      await L.win.waitForTimeout(1500);
+      await shot(L.win, 'settings-mods-502');
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { mock.setMode('ok'); await L.close(); }
+  });
+});

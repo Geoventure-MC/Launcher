@@ -15,7 +15,7 @@ export const ACCOUNT = {
 };
 
 // Lance le VRAI Electron (xvfb requis) dans un dossier jetable : HOME isolé (dossier de jeu), userData dans <tmp>/AppData.
-export async function launchLauncher(mock, { account = true, instance = 'geoventure', telemetry = false } = {}) {
+export async function launchLauncher(mock, { account = true, instance = 'geoventure', telemetry = false, prepare = null } = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-e2e-'));
   const home = path.join(tmp, 'home');
   fs.mkdirSync(home, { recursive: true });
@@ -38,6 +38,7 @@ export async function launchLauncher(mock, { account = true, instance = 'geovent
   win.on('pageerror', e => logs.push({ type: 'pageerror', text: e.message, stack: e.stack }));
   await win.waitForLoadState('domcontentloaded');
   await seed(win, mock, { account, instance, telemetry });
+  if (prepare) prepare(home);   // ex. dossier de jeu déjà installé AVANT l'init des panneaux
   await win.reload();
   return { app, win, logs, tmp, home, close: async () => { await app.close().catch(() => {}); fs.rmSync(tmp, { recursive: true, force: true }); } };
 }
