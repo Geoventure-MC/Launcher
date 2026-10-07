@@ -52,7 +52,7 @@ Il télécharge automatiquement Java, les mods et les mises à jour. Tu lances, 
 3. Suis l’installeur
 
 **macOS**
-1. Télécharge le `.dmg` correspondant à ton Mac (Apple Silicon ou Intel)
+1. Télécharge `Nexus-mac-arm64.dmg` (Mac Apple Silicon ; il n’y a pas de build Intel pour l’instant)
 2. Monte le disque, glisse l’app dans le dossier **Applications**
 3. Au premier lancement : clic droit → **Ouvrir** (pour ignorer Gatekeeper)
 
