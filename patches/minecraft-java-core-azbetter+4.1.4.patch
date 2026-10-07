@@ -1,0 +1,103 @@
+diff --git a/node_modules/minecraft-java-core-azbetter/build/Launch.js b/node_modules/minecraft-java-core-azbetter/build/Launch.js
+index f2f6ce0..765a381 100644
+--- a/node_modules/minecraft-java-core-azbetter/build/Launch.js
++++ b/node_modules/minecraft-java-core-azbetter/build/Launch.js
+@@ -174,8 +174,15 @@ class Launch extends events_1.EventEmitter {
+             let jsonLoader = await loaderInstall.GetLoader(version, this.options.java.path ? this.options.java.path : gameJava.path)
+                 .then((data) => data)
+                 .catch((err) => err);
+-            if (jsonLoader.error)
+-                return jsonLoader;
++            // Une erreur de loader (patch Forge qui échoue, réseau…) arrive comme une CHAÎNE ou une Error
++            // (rejet de promesse), pas comme { error } : sans ce contrôle elle était prise pour le JSON du
++            // loader et le lancement plantait en silence, écran figé sur « Patch ».
++            if (!jsonLoader || typeof jsonLoader !== 'object' || jsonLoader instanceof Error || jsonLoader.error || !Array.isArray(jsonLoader.libraries)) {
++                const msg = jsonLoader && jsonLoader.error ? jsonLoader.error
++                    : jsonLoader instanceof Error ? jsonLoader.message
++                    : typeof jsonLoader === 'string' ? jsonLoader : 'Installation du loader impossible';
++                return { error: String(typeof msg === 'string' ? msg : JSON.stringify(msg)) };
++            }
+             loaderJson = jsonLoader;
+         }
+         if (this.options.verify)
+diff --git a/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/index.js b/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/index.js
+index d536de4..b1e0e9f 100644
+--- a/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/index.js
++++ b/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/index.js
+@@ -45,6 +45,7 @@ class Loader extends events_1.EventEmitter {
+         }
+         const loaderType = this.options.loader.type;
+         let result;
++        try {
+         switch (loaderType) {
+             case 'forge': {
+                 result = await this.forge(LoaderData);
+@@ -71,6 +72,10 @@ class Loader extends events_1.EventEmitter {
+                 return;
+             }
+         }
++        } catch (e) {
++            this.emit('error', { error: `Installation du loader : ${e && e.message ? e.message : e}` });
++            return;
++        }
+         // If there's an error property, emit it. Otherwise, emit the final JSON.
+         if (result && result.error) {
+             this.emit('error', result);
+@@ -102,6 +107,10 @@ class Loader extends events_1.EventEmitter {
+         forge.on('patch', (patch) => {
+             this.emit('patch', patch);
+         });
++        forge.on('error', (e) => {
++            // Sans ce relais, l'erreur du patcher levait ERR_UNHANDLED_ERROR et le lancement restait figé.
++            this.emit('error', typeof e === 'string' ? { error: e } : e);
++        });
+         // 1. Download installer
+         const installer = await forge.downloadInstaller(LoaderData);
+         if (installer.error)
+diff --git a/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js b/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js
+index f995eca..7fbb944 100644
+--- a/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js
++++ b/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js
+@@ -42,14 +42,41 @@ class ForgePatcher extends events_1.EventEmitter {
+                     [`"${jarPath}"`, ...classPaths].join(path_1.default.delimiter),
+                     mainClass,
+                     ...args
+-                ], { shell: true });
++                ], { shell: true, detached: process.platform !== 'win32' });
++                // Un processeur Forge qui ne produit plus aucune sortie pendant IDLE_MS est considéré comme
++                // bloqué (réseau, disque, JVM) : on le tue et on signale l'erreur au lieu d'attendre à l'infini.
++                const IDLE_MS = 180000;
++                let done = false;
++                let idle;
++                const finish = () => { if (done) return false; done = true; clearTimeout(idle); return true; };
++                const killTree = () => {
++                    try { if (process.platform !== 'win32') process.kill(-spawned.pid, 'SIGKILL'); else spawned.kill(); } catch (e) { try { spawned.kill(); } catch (_) { } }
++                };
++                const arm = () => {
++                    clearTimeout(idle);
++                    idle = setTimeout(() => {
++                        if (!finish()) return;
++                        killTree();
++                        this.emit('error', `Le patch Forge ne répond plus depuis ${IDLE_MS / 1000} s (tâche : ${processor.args.join(' ').slice(0, 120)}). Vérifie ta connexion puis relance.`);
++                        resolve();
++                    }, IDLE_MS);
++                };
++                arm();
+                 spawned.stdout.on('data', data => {
++                    arm();
+                     this.emit('patch', data.toString('utf-8'));
+                 });
+                 spawned.stderr.on('data', data => {
++                    arm();
+                     this.emit('patch', data.toString('utf-8'));
+                 });
++                spawned.on('error', err => {
++                    if (!finish()) return;
++                    this.emit('error', `Impossible de lancer le patcher Forge : ${err && err.message ? err.message : err}`);
++                    resolve();
++                });
+                 spawned.on('close', code => {
++                    if (!finish()) return;
+                     if (code !== 0) {
+                         this.emit('error', `Le patcher Forge s'est terminé avec le code ${code}`);
+                     }

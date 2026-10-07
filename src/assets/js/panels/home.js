@@ -401,14 +401,34 @@ class Home {
         });
         launch.on('patch', patch => {
             this._setPhase('patch');
-            info.innerHTML = t('patch_in_progress');
+            // Montre la tâche Forge en cours (« Task: MERGE_MAPPING »…) pour que le patch ne paraisse jamais figé,
+            // et garde toute la sortie dans la console du launcher.
+            const lines = String(patch || '').replace(/\r/g, '').split('\n').filter(l => l.trim().length);
+            const task = lines.reverse().find(l => /^Task:/i.test(l.trim()));
+            if (task) {
+                this.patchTask = task.replace(/^Task:\s*/i, '').trim();
+                this.writeLauncherLog('patch ' + task.trim());
+            }
+            info.innerHTML = t('patch_in_progress') + (this.patchTask ? ` <span class="patch-task">(${String(this.patchTask).replace(/[<>&]/g, '')})</span>` : '');
+            if (patch) this.appendLog(patch);
         });
         launch.on('data', e => this.handleLaunchData(e, info, progressBar, playBtn, launcherSettings));
         launch.on('close', code => this.handleLaunchClose(code, info, progressBar, playBtn, launcherSettings));
         launch.on('error', err => {
-            this.appendLog(err && err.error ? err.error : String(err));
+            const msg = err && err.error ? (typeof err.error === 'string' ? err.error : JSON.stringify(err.error)) : String(err);
+            this.appendLog(msg);
+            this.writeLauncherLog('ERREUR ' + msg);
             const logToggle = document.getElementById('log-toggle-btn');
             if (logToggle) logToggle.style.display = '';
+            // Une erreur pendant l'installation/le patch ne doit pas laisser l'écran figé : on la montre
+            // et on rend le bouton Jouer pour pouvoir réessayer.
+            if (this.currentPhase === 'patch' || this.currentPhase === 'download' || this.currentPhase === 'extract' || this.currentPhase === 'check' || !this.currentPhase) {
+                this._pillProgressEnd();
+                if (progressBar) progressBar.style.display = 'none';
+                info.style.display = 'block';
+                info.innerHTML = `<span class="red">${String(msg).replace(/[<>&]/g, '').slice(0, 220)}</span>`;
+                if (playBtn) { playBtn.style.display = 'block'; playBtn.disabled = false; }
+            }
         });
     }
 
@@ -1806,6 +1826,17 @@ class Home {
             `;
             container.appendChild(card);
         }
+    }
+
+    // Journal du launcher sur disque : <dossier de jeu>/logs/launcher.log (le launcher n'en écrivait aucun).
+    writeLauncherLog(line) {
+        try {
+            const fsl = require('fs');
+            const pathl = require('path');
+            const dir = pathl.join(this.gameDir(), 'logs');
+            fsl.mkdirSync(dir, { recursive: true });
+            fsl.appendFileSync(pathl.join(dir, 'launcher.log'), `[${new Date().toISOString()}] ${line}\n`);
+        } catch (e) { /* le journal ne doit jamais gêner le lancement */ }
     }
 
     appendLog(text) {
