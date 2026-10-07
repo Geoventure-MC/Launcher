@@ -40,10 +40,9 @@ Il télécharge automatiquement Java, les mods et les mises à jour. Tu lances, 
 
 | Plateforme | Fichier |
 |---|---|
-| **Windows** | `Nexus Launcher Setup x.x.x.exe` |
-| **macOS (Apple Silicon)** | `Nexus Launcher-x.x.x-arm64.dmg` |
-| **macOS (Intel)** | `Nexus Launcher-x.x.x.dmg` |
-| **Linux** | `Nexus Launcher-x.x.x.AppImage` |
+| **Windows** | `Nexus-win-x64.exe` |
+| **macOS (Apple Silicon)** | `Nexus-mac-arm64.dmg` |
+| **Linux (x86_64)** | `Nexus-linux-x86_64.AppImage` |
 
 ### Installation
 
@@ -58,13 +57,41 @@ Il télécharge automatiquement Java, les mods et les mises à jour. Tu lances, 
 3. Au premier lancement : clic droit → **Ouvrir** (pour ignorer Gatekeeper)
 
 **Linux**
-1. Télécharge l’`.AppImage`
-2. Rends-le exécutable : `chmod +x Nexus*.AppImage`
-3. Lance-le : `./Nexus*.AppImage`
+1. Télécharge `Nexus-linux-x86_64.AppImage`
+2. Rends-le exécutable : `chmod +x Nexus-linux-x86_64.AppImage`
+3. Lance-le : `./Nexus-linux-x86_64.AppImage`
 
 ### Mise à jour automatique
 
-Si tu as déjà le launcher, il détecte les nouvelles versions au démarrage et se met à jour tout seul.
+Le launcher cherche les nouvelles versions à chaque démarrage.
+
+| Système | Comportement |
+|---|---|
+| **Windows** | Téléchargement et installation automatiques, avec barre de progression |
+| **Linux (AppImage)** | Idem : l'AppImage est remplacé et le launcher redémarre tout seul |
+| **macOS, Linux hors AppImage** (`.deb`, dossier extrait) | Boutons **Télécharger** (ouvre la page de la release) ou **Continuer** sans mettre à jour |
+
+Si la vérification échoue (réseau, GitHub injoignable), le launcher **démarre quand même** — il ne reste jamais bloqué sur l'écran de mise à jour.
+
+> Une ancienne version bloquée sur « Mise à jour disponible » ne peut pas se réparer seule : télécharge une fois la dernière version à la main, les suivantes seront automatiques.
+
+### Où sont les fichiers et les logs ?
+
+| Quoi | Windows | Linux | macOS |
+|---|---|---|---|
+| Dossier de jeu | `%APPDATA%\.Nexus` | `~/.Nexus` | `~/Library/Application Support/Nexus` |
+| Log du jeu | `logs\latest.log` | `~/.Nexus/logs/latest.log` | `…/Nexus/logs/latest.log` |
+| Plantages du jeu | `crash-reports\` | `~/.Nexus/crash-reports/` | `…/Nexus/crash-reports/` |
+| **Log du launcher** (installation, patch Forge) | `logs\launcher.log` | `~/.Nexus/logs/launcher.log` | `…/Nexus/logs/launcher.log` |
+| Autres instances (Elandor, Pokeland) | `.Nexus\instances\<nom>\` | `~/.Nexus/instances/<nom>/` | idem |
+
+Pour voir les messages du launcher lui-même sous Linux, lance-le depuis un terminal :
+`./Nexus-linux-x86_64.AppImage 2>&1 | tee ~/nexus-launcher.log`
+(dans la fenêtre : `F12` ou `Ctrl+Maj+I` ouvre la console de développement). L'écran d'accueil a aussi une console intégrée avec les boutons **Effacer / Copier / Exporter**.
+
+### Dépannage : l'installation reste sur « Patch »
+
+Le patch Forge prépare le jeu (quelques secondes à quelques minutes la première fois). S'il échoue ou ne répond plus pendant 3 minutes, le launcher affiche maintenant l'erreur en rouge et rend le bouton **Jouer**. Envoie-nous le contenu de `logs/launcher.log` (ou le bouton **Exporter** de la console) sur le [Discord](https://discord.gg/VCmNXHvf77) ou dans une [issue](https://github.com/Geoventure-MC/Launcher/issues). Vérifie aussi ta connexion : le patch télécharge des fichiers chez Mojang.
 
 ---
 
@@ -95,6 +122,9 @@ Si tu as déjà le launcher, il détecte les nouvelles versions au démarrage et
 
 ## Nouveautés récentes
 
+- **Installation fiabilisée** — Une erreur pendant le patch Forge ne laisse plus l'écran figé : le message s'affiche, le bouton Jouer revient, la tâche de patch en cours est visible et un journal `logs/launcher.log` est écrit. Un patch silencieux depuis 3 minutes est interrompu avec une erreur claire.
+- **Mise à jour Linux** — L'AppImage se met à jour automatiquement comme sous Windows ; une erreur de l'outil de mise à jour ne ferme plus le launcher.
+- **Tests de bout en bout** — Suite Playwright sur le vrai Electron (`npm run test:e2e`) : démarrage, instances, accueil, résilience aux pannes du panel, réglages, profil.
 - **Notifications de bureau (opt-in)** — Nouvelle annonce maintenance/événement ou serveur de retour en ligne : une notification système s'affiche même quand le launcher est en arrière-plan. Activable dans les paramètres, throttlée à 1 par type toutes les 5 minutes.
 - **Galerie de captures d'écran** — Panneau dédié par instance : vignettes, plein écran, suppression, ouverture directe du dossier.
 - **Mode hors-ligne intelligent** — Si le panel est injoignable au démarrage, le launcher réutilise la dernière configuration connue (avec bandeau d'information) au lieu de bloquer — le jeu reste lançable si les fichiers sont déjà téléchargés.
@@ -124,6 +154,8 @@ cd Launcher
 npm install
 ```
 
+> `npm install` applique automatiquement le correctif de la bibliothèque de lancement (`patches/minecraft-java-core-azbetter+*.patch`, via `patch-package`). Si tu mets cette bibliothèque à jour, régénère-le : `npx patch-package minecraft-java-core-azbetter`.
+
 ### Lancer en développement
 
 ```bash
@@ -138,6 +170,14 @@ npm run build    # Build + obfuscation pour ta plateforme
 ```
 
 Les artefacts sont générés dans le dossier `dist/`.
+
+### Tests
+
+```bash
+npm run test:e2e   # Playwright + vrai Electron (xvfb lancé automatiquement sous Linux), faux panel local
+```
+
+Aucun workflow GitHub Actions n'est nécessaire : tout tourne en local. Détails dans [CLAUDE.md](CLAUDE.md).
 
 ### Déployer une mise à jour
 
