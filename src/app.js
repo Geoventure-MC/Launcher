@@ -63,10 +63,10 @@ ipcMain.handle('Microsoft-window', async (event, client_id) => {
 
 // Save-dialog for the in-app game console "Export" button. Returns the chosen
 // file path (or null if cancelled); the renderer writes the file itself.
-ipcMain.handle('save-logs-dialog', async () => {
+ipcMain.handle('save-logs-dialog', async (_, defaultName) => {
     const win = MainWindow.getWindow();
     const res = await dialog.showSaveDialog(win, {
-        defaultPath: `minecraft-logs-${Date.now()}.txt`,
+        defaultPath: (typeof defaultName === 'string' && /^[\w.-]{1,80}$/.test(defaultName)) ? defaultName : `minecraft-logs-${Date.now()}.txt`,
         filters: [{ name: 'Text', extensions: ['txt'] }],
     });
     return res && !res.canceled ? res.filePath : null;

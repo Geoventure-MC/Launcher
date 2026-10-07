@@ -1037,6 +1037,80 @@ input:checked+.slider:before {
     color: var(--geo-danger-soft);
 }
 
+/* ─── Performances & diagnostic ────────────────────────────────────────────── */
+
+.perf-hw {
+    font: 500 13px/1.5 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 12px;
+}
+
+.perf-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    font: 500 13px/1.4 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.perf-details {
+    font: 400 13px/1.6 'Poppins', sans-serif;
+    color: rgba(255, 255, 255, 0.7);
+    max-width: 560px;
+    margin-bottom: 10px;
+    word-break: break-word;
+}
+
+.perf-details b {
+    color: var(--geo-accent);
+    font-weight: 600;
+}
+
+.perf-warnings {
+    font: 500 13px/1.5 'Poppins', sans-serif;
+    color: var(--geo-gold);
+    max-width: 560px;
+    margin-bottom: 12px;
+}
+
+.perf-warnings .perf-warn-bad {
+    color: var(--geo-danger-soft);
+}
+
+.perf-jvm {
+    margin-top: 16px;
+}
+
+.resolution-input.perf-jvm-input {
+    width: min(100%, 460px);
+    text-align: left;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.diag-output {
+    display: block;
+    width: min(100%, 640px);
+    height: 220px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+    font: 400 11px/1.45 monospace;
+    resize: vertical;
+    outline: none;
+}
+
+.diag-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
 /* ─── Resolution Settings ──────────────────────────────────────────────────── */
 
 .resolution-settings {

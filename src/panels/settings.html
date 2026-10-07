@@ -157,6 +157,49 @@
                         <label for="desktop-notifications" id="desktop-notifications-label">Notifications de bureau (annonces, serveurs)</label>
                     </div>
                 </div>
+                <div class="advanced-section" id="perf-section">
+                    <h3 id="perf-title">Performances</h3>
+                    <div class="repair-info" id="perf-info"></div>
+                    <div class="perf-hw" id="perf-hw"></div>
+                    <div class="perf-row">
+                        <label for="perf-profile-select" id="perf-profile-label"></label>
+                        <select id="perf-profile-select" class="resolution-select">
+                            <option value="eco"></option>
+                            <option value="balanced"></option>
+                            <option value="performance"></option>
+                        </select>
+                    </div>
+                    <div class="perf-details" id="perf-details"></div>
+                    <div class="perf-warnings" id="perf-warnings"></div>
+                    <button class="btn-advanced" id="perf-optimize-btn">
+                        <i class="fas fa-bolt"></i>
+                        <span id="perf-optimize-text">Optimiser pour ma machine</span>
+                    </button>
+                    <div class="repair-status" id="perf-status" style="display: none;"></div>
+                    <div class="perf-row perf-jvm">
+                        <label for="jvm-args-input" id="jvm-args-label"></label>
+                        <input type="text" id="jvm-args-input" class="resolution-input perf-jvm-input" spellcheck="false" autocomplete="off">
+                    </div>
+                </div>
+                <div class="advanced-section" id="diag-section">
+                    <h3 id="diag-title">Diagnostic</h3>
+                    <div class="repair-info" id="diag-info"></div>
+                    <button class="btn-advanced" id="diag-run-btn">
+                        <i class="fas fa-stethoscope"></i>
+                        <span id="diag-run-text">Générer le rapport</span>
+                    </button>
+                    <div class="repair-status" id="diag-status" style="display: none;"></div>
+                    <div id="diag-result" style="display: none;">
+                        <textarea id="diag-output" class="diag-output" readonly spellcheck="false"></textarea>
+                        <div class="diag-actions">
+                            <button class="btn-advanced" id="diag-copy-btn"><i class="fas fa-copy"></i><span id="diag-copy-text"></span></button>
+                            <button class="btn-advanced" id="diag-save-btn"><i class="fas fa-save"></i><span id="diag-save-text"></span></button>
+                            <button class="btn-advanced" id="diag-logs-btn"><i class="fas fa-folder-open"></i><span id="diag-logs-text"></span></button>
+                            <button class="btn-advanced" id="diag-send-btn"><i class="fas fa-paper-plane"></i><span id="diag-send-text"></span></button>
+                        </div>
+                        <div class="repair-info" id="diag-send-note"></div>
+                    </div>
+                </div>
                 <div class="advanced-section">
                     <h3 id="repair-title">🔧 Réparer l'installation</h3>
                     <div class="repair-info" id="repair-info"></div>
