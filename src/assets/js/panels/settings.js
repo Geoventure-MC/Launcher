@@ -13,6 +13,8 @@ import * as desktopNotify from '../utils/desktopNotify.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
 import { getAzAuthUrl } from '../utils/config.js';
+import { toGb, recommendProfile, buildProfile, sanitizeJvmArgs, PROFILE_IDS } from '../utils/perf.js';
+import { collectDiagnostic } from '../utils/diagnostic.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -36,6 +38,7 @@ class Settings {
         this.config = config;
         this.database = await new database().init();
         this.initSettingsDefault();
+        this.hw = await this.detectHardware();
         this.initTab();
         this.initAccount();
         this.initRam();
@@ -46,8 +49,36 @@ class Settings {
         this.headplayer();
         this.initSkinDropzone();
         this.initAdvanced();
+        this.initPerformance();
+        this.initDiagnostic();
         this.initRepair();
         this.initCommunityMods();
+    }
+
+    // ----- Matériel (profils de performance + diagnostic) -----
+    // NEXUS_SIM_RAM_GB / NEXUS_SIM_FREE_GB / NEXUS_SIM_CORES : simulation pour les tests E2E uniquement.
+    async detectHardware() {
+        const env = process.env;
+        const simRam = Number(env.NEXUS_SIM_RAM_GB);
+        const cpus = os.cpus() || [];
+        const cores = Number(env.NEXUS_SIM_CORES) > 0 ? Number(env.NEXUS_SIM_CORES) : (cpus.length || 1);
+        let gpu = env.NEXUS_SIM_GPU || null;
+        if (!gpu) {
+            try {
+                const info = await Promise.race([
+                    ipcRenderer.invoke('get-gpu-info'),
+                    new Promise(resolve => setTimeout(() => resolve(null), 4000)),
+                ]);
+                gpu = info && info.name ? info.name : null;
+            } catch { /* GPU facultatif */ }
+        }
+        return {
+            totalGb: simRam > 0 ? simRam : toGb(os.totalmem()),
+            freeGb: Number(env.NEXUS_SIM_FREE_GB) > 0 ? Number(env.NEXUS_SIM_FREE_GB) : toGb(os.freemem()),
+            cores,
+            cpuModel: (cpus[0] && cpus[0].model ? cpus[0].model : 'CPU').replace(/\s+/g, ' ').trim(),
+            gpu,
+        };
     }
 
     initSkinDropzone() {
@@ -306,8 +337,8 @@ class Settings {
 
     async initRam() {
         const ramDatabase = (await this.database.get('1234', 'ram'))?.value;
-        const totalMem = Math.trunc(os.totalmem() / 1073741824 * 10) / 10;
-        const freeMem = Math.trunc(os.freemem() / 1073741824 * 10) / 10;
+        const totalMem = this.hw ? this.hw.totalGb : Math.trunc(os.totalmem() / 1073741824 * 10) / 10;
+        const freeMem = this.hw ? this.hw.freeGb : Math.trunc(os.freemem() / 1073741824 * 10) / 10;
 
         document.getElementById("total-ram").textContent = `${totalMem} Go RAM`;
         document.getElementById("free-ram").textContent = `${freeMem} Go RAM disponible`;
@@ -317,6 +348,7 @@ class Settings {
 
         const ram = ramDatabase ? ramDatabase : { ramMin: this.config.ram_min, ramMax: this.config.ram_max };
         const slider = new Slider(".memory-slider", parseFloat(ram.ramMin), parseFloat(ram.ramMax));
+        this.ramSlider = slider;
 
         const minSpan = document.querySelector(".slider-touch-left span");
         const maxSpan = document.querySelector(".slider-touch-right span");
@@ -328,6 +360,7 @@ class Settings {
             minSpan.setAttribute("value", `${min} Go`);
             maxSpan.setAttribute("value", `${max} Go`);
             this.database.update({ uuid: "1234", ramMin: `${min}`, ramMax: `${max}` }, 'ram');
+            this.markProfileModified();
         });
     }
 
@@ -790,6 +823,244 @@ class Settings {
         checkbox.checked = isConsented();
         checkbox.addEventListener('change', () => {
             setConsent(checkbox.checked);
+        });
+    }
+
+    // ----- Profils de performance -----
+    static PERF_KEY = 'nexus_perf_profile';
+
+    _perfStored() {
+        try { return JSON.parse(localStorage.getItem(Settings.PERF_KEY) || 'null'); } catch { return null; }
+    }
+
+    _profileName(id) { return t(`perf_profile_${id}`); }
+
+    markProfileModified() {
+        const st = this._perfStored();
+        if (!st || st.modified) return;
+        st.modified = true;
+        try { localStorage.setItem(Settings.PERF_KEY, JSON.stringify(st)); } catch { /* */ }
+        this.renderCurrentProfile();
+    }
+
+    renderCurrentProfile() {
+        const el = document.getElementById('perf-current');
+        if (!el) return;
+        const st = this._perfStored();
+        el.textContent = !st ? t('perf_current_none')
+            : t(st.modified ? 'perf_current_modified' : 'perf_current').replace('{profile}', this._profileName(st.id));
+    }
+
+    renderProfileDetails() {
+        const hw = this.hw;
+        const select = document.getElementById('perf-profile-select');
+        const plan = buildProfile(select.value, hw);
+        this.perfPlan = plan;
+        const details = document.getElementById('perf-details');
+        const warnings = document.getElementById('perf-warnings');
+        const btn = document.getElementById('perf-optimize-btn');
+        if (plan.insufficient) {
+            details.textContent = t('perf_details_insufficient');
+        } else {
+            const zgc = plan.jvmArgs.includes('-XX:+UseZGC');
+            details.innerHTML = t('perf_details')
+                .replace('{min}', plan.ramMin).replace('{max}', plan.ramMax)
+                .replace('{gc}', this._escapeHtml(t(zgc ? 'perf_gc_zgc' : 'perf_gc_g1')))
+                .replace('{rd}', plan.renderDistance);
+        }
+        warnings.innerHTML = plan.warnings
+            .map(k => `<div class="${k === 'perf_warn_insufficient' ? 'perf-warn-bad' : ''}">${this._escapeHtml(t(k))}</div>`).join('');
+        btn.disabled = plan.insufficient;
+    }
+
+    initPerformance() {
+        const btn = document.getElementById('perf-optimize-btn');
+        const select = document.getElementById('perf-profile-select');
+        const jvmInput = document.getElementById('jvm-args-input');
+        if (!btn || !select || !this.hw) return;
+        const hw = this.hw;
+        const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+        set('perf-title', t('perf_title'));
+        set('perf-info', t('perf_info'));
+        set('perf-profile-label', t('perf_profile_label'));
+        set('perf-optimize-text', t('perf_optimize_btn'));
+        set('jvm-args-label', t('jvm_args_label'));
+        jvmInput.title = t('jvm_args_help');
+        jvmInput.placeholder = t('jvm_args_help');
+        set('perf-hw', t('perf_hw').replace('{ram}', hw.totalGb).replace('{free}', hw.freeGb)
+            .replace('{cores}', hw.cores).replace('{cpu}', hw.cpuModel).replace('{gpu}', hw.gpu || t('perf_gpu_unknown')));
+
+        const recommended = recommendProfile(hw.totalGb, hw.cores);
+        for (const opt of select.options) {
+            opt.textContent = this._profileName(opt.value) + (opt.value === recommended ? ` (${t('perf_recommended')})` : '');
+        }
+        select.value = recommended;
+        select.addEventListener('change', () => this.renderProfileDetails());
+        this.renderProfileDetails();
+
+        // Ligne « profil actuel » sous le bouton.
+        const status = document.getElementById('perf-status');
+        let cur = document.getElementById('perf-current');
+        if (!cur) {
+            cur = document.createElement('div');
+            cur.id = 'perf-current';
+            cur.className = 'repair-info';
+            status.parentNode.insertBefore(cur, status);
+        }
+        this.renderCurrentProfile();
+
+        // Arguments JVM : lecture de la base, édition à la main.
+        this.database.get('1234', 'java-args').then(r => {
+            const args = r && r.value && Array.isArray(r.value.args) ? r.value.args : [];
+            jvmInput.value = args.join(' ');
+        }).catch(() => { /* champ vide */ });
+        jvmInput.addEventListener('change', async () => {
+            const args = sanitizeJvmArgs(jvmInput.value);
+            jvmInput.value = args.join(' ');
+            await this.database.update({ uuid: '1234', args }, 'java-args');
+            this.markProfileModified();
+        });
+
+        // La sync du curseur RAM se fait à l'ouverture de l'onglet (le curseur est mesuré visible).
+        const ramTab = document.getElementById('ram-tab');
+        if (ramTab) ramTab.addEventListener('click', () => {
+            if (!this.pendingSlider || !this.ramSlider) return;
+            const { min, max } = this.pendingSlider;
+            this.pendingSlider = null;
+            requestAnimationFrame(() => { this.ramSlider.setMinValue(min); this.ramSlider.setMaxValue(max); });
+        });
+
+        btn.addEventListener('click', async () => {
+            const plan = this.perfPlan;
+            if (!plan || plan.insufficient) return;
+            const name = this._profileName(plan.id);
+            const ok = confirm(t('perf_confirm').replace('{profile}', name).replace('{min}', plan.ramMin)
+                .replace('{max}', plan.ramMax).replace('{args}', plan.jvmArgs.join(' ')));
+            if (!ok) return;
+            await this.database.update({ uuid: '1234', ramMin: `${plan.ramMin}`, ramMax: `${plan.ramMax}` }, 'ram');
+            await this.database.update({ uuid: '1234', args: plan.jvmArgs }, 'java-args');
+            try {
+                localStorage.setItem(Settings.PERF_KEY, JSON.stringify({ id: plan.id, ramMin: plan.ramMin, ramMax: plan.ramMax, appliedAt: Date.now(), modified: false }));
+            } catch { /* */ }
+            jvmInput.value = plan.jvmArgs.join(' ');
+            const minSpan = document.querySelector('.slider-touch-left span');
+            const maxSpan = document.querySelector('.slider-touch-right span');
+            if (minSpan) minSpan.setAttribute('value', `${plan.ramMin} Go`);
+            if (maxSpan) maxSpan.setAttribute('value', `${plan.ramMax} Go`);
+            this.pendingSlider = { min: plan.ramMin, max: plan.ramMax };
+            this.renderCurrentProfile();
+            status.style.display = 'flex';
+            status.className = 'repair-status repair-status-ok';
+            status.innerHTML = `<i class="fas fa-check-circle"></i><span>${this._escapeHtml(t('perf_applied').replace('{profile}', name).replace('{min}', plan.ramMin).replace('{max}', plan.ramMax))}</span>`;
+        });
+    }
+
+    // ----- Diagnostic en 1 clic -----
+    async _secretsToMask() {
+        const out = [];
+        try {
+            const all = await this.database.getAll('accounts');
+            for (const a of all || []) {
+                const v = a && (a.value || a);
+                for (const k of ['access_token', 'client_token', 'refresh_token']) if (v && typeof v[k] === 'string') out.push(v[k]);
+                if (v && v.meta && typeof v.meta.refresh_token === 'string') out.push(v.meta.refresh_token);
+            }
+        } catch { /* */ }
+        return out;
+    }
+
+    initDiagnostic() {
+        const runBtn = document.getElementById('diag-run-btn');
+        if (!runBtn) return;
+        const $ = id => document.getElementById(id);
+        const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+        set('diag-title', t('diag_title'));
+        set('diag-info', t('diag_info'));
+        set('diag-run-text', t('diag_run_btn'));
+        set('diag-copy-text', t('diag_copy'));
+        set('diag-save-text', t('diag_save'));
+        set('diag-logs-text', t('diag_logs'));
+        set('diag-send-text', t('diag_send'));
+        set('diag-send-note', t('diag_send_note'));
+
+        const status = $('diag-status');
+        const say = (kind, msg, spinner = false) => {
+            status.style.display = 'flex';
+            status.className = `repair-status${kind ? ` repair-status-${kind}` : ''}`;
+            const icon = spinner ? '<span class="community-spinner"></span>'
+                : `<i class="fas ${kind === 'ok' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>`;
+            status.innerHTML = `${icon}<span>${this._escapeHtml(msg)}</span>`;
+        };
+        const output = $('diag-output');
+        const gameDir = () => this.gameDir();
+
+        runBtn.addEventListener('click', async () => {
+            runBtn.disabled = true;
+            say('', t('diag_running'), true);
+            try {
+                const ram = (await this.database.get('1234', 'ram'))?.value;
+                const javaPath = (await this.database.get('1234', 'java-path'))?.value?.path;
+                const jvm = (await this.database.get('1234', 'java-args'))?.value?.args;
+                const st = this._perfStored();
+                const report = await collectDiagnostic({
+                    pkg, config: this.config, gameDir: gameDir(), settingsUrl: settings_url,
+                    azauthUrl: this.getAzAuthUrl(), instance: localStorage.getItem('geoventure_selected_instance'),
+                    hw: this.hw, javaPath: javaPath || null, ram, jvmArgs: jvm,
+                    profile: st ? `${st.id}${st.modified ? ' (modifié à la main)' : ''}` : null,
+                    secrets: await this._secretsToMask(),
+                });
+                output.value = report;
+                $('diag-result').style.display = 'block';
+                say('ok', t('diag_ready'));
+            } catch (err) {
+                console.error('Diagnostic failed:', err);
+                say('error', t('diag_error'));
+            }
+            runBtn.disabled = false;
+        });
+
+        $('diag-copy-btn').addEventListener('click', () => {
+            try { require('electron').clipboard.writeText(output.value); say('ok', t('diag_copied')); }
+            catch { say('error', t('diag_error')); }
+        });
+
+        $('diag-save-btn').addEventListener('click', async () => {
+            try {
+                const file = await ipcRenderer.invoke('save-logs-dialog', `nexus-diagnostic-${Date.now()}.txt`);
+                if (!file) return;
+                fs.writeFileSync(file, output.value, 'utf8');
+                say('ok', t('diag_saved').replace('{file}', path.basename(file)));
+            } catch { say('error', t('diag_error')); }
+        });
+
+        $('diag-logs-btn').addEventListener('click', () => {
+            const dir = path.join(gameDir(), 'logs');
+            try { fs.mkdirSync(dir, { recursive: true }); } catch { /* */ }
+            shell.openPath(dir);
+        });
+
+        // Envoi : UNIQUEMENT sur clic. Un 404/405/501 (panel sans la route) est toléré.
+        $('diag-send-btn').addEventListener('click', async () => {
+            const btn = $('diag-send-btn');
+            btn.disabled = true;
+            try {
+                const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+                const res = await fetch(`${base}utils/diagnostic`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 10000,
+                    body: JSON.stringify({
+                        launcherVersion: pkg.version,
+                        instance: localStorage.getItem('geoventure_selected_instance') || null,
+                        os: process.platform,
+                        report: output.value,
+                    }),
+                });
+                if ([404, 405, 501].includes(res.status)) say('error', t('diag_send_unsupported'));
+                else if (!res.ok) say('error', t('diag_send_error'));
+                else say('ok', t('diag_sent'));
+            } catch { say('error', t('diag_send_error')); }
+            btn.disabled = false;
         });
     }
 

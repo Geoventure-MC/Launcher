@@ -8,6 +8,7 @@
 'use strict';
 
 import { logger, database, changePanel, t } from '../utils.js';
+import { sanitizeJvmArgs } from '../utils/perf.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory, getGameDirectoryFor } from '../utils/gamedir.js';
@@ -324,7 +325,10 @@ class Home {
         const account = (await this.database.get(uuid.selected, 'accounts')).value;
         const ram = (await this.database.get('1234', 'ram')).value;
         const javaPath = (await this.database.get('1234', 'java-path')).value;
-        const javaArgs = (await this.database.get('1234', 'java-args')).value;
+        const javaArgs = (await this.database.get('1234', 'java-args'))?.value;
+        // Arguments JVM du profil de performance (ou saisis à la main) ; -Xms/-Xmx sont retirés (curseurs RAM).
+        const jvmArgs = sanitizeJvmArgs(javaArgs && Array.isArray(javaArgs.args) ? javaArgs.args : []);
+        this.writeLauncherLog(`lancement RAM ${ram.ramMin}-${ram.ramMax} Go, JVM ${jvmArgs.join(' ') || '(défaut)'}`);
         const resolution = (await this.database.get('1234', 'screen')).value;
         const launcherSettings = (await this.database.get('1234', 'launcher')).value;
 
@@ -349,7 +353,7 @@ class Home {
                 "launcher_config",
             ],
             intelEnabledMac: process.platform === 'darwin' && process.arch === 'arm64',
-            JVM_ARGS: [],
+            JVM_ARGS: jvmArgs,
             GAME_ARGS: [],
             java: this.config.java,
             memory: {
