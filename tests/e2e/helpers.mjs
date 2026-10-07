@@ -15,11 +15,11 @@ export const ACCOUNT = {
 };
 
 // Lance le VRAI Electron (xvfb requis) dans un dossier jetable : HOME isolé (dossier de jeu), userData dans <tmp>/AppData.
-export async function launchLauncher(mock, { account = true, instance = 'geoventure', telemetry = false, prepare = null } = {}) {
+export async function launchLauncher(mock, { account = true, instance = 'geoventure', telemetry = false, prepare = null, env: extraEnv = {} } = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nexus-e2e-'));
   const home = path.join(tmp, 'home');
   fs.mkdirSync(home, { recursive: true });
-  const env = { ...process.env, NODE_ENV: 'dev', HOME: home, APPDATA: '', NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost' };
+  const env = { ...process.env, NODE_ENV: 'dev', HOME: home, APPDATA: '', NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost', ...extraEnv };
   delete env.HTTPS_PROXY; delete env.https_proxy; delete env.HTTP_PROXY; delete env.http_proxy; delete env.DEV_TOOL;
   const app = await electron.launch({
     executablePath: path.join(ROOT, 'node_modules/electron/dist/electron'),

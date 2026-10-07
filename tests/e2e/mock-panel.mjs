@@ -65,6 +65,7 @@ export async function startMock(port = MOCK_PORT) {
   let mode = 'ok';
   const defaultManifest = MANIFEST_FILES.map(f => ({ path: f.path, size: Buffer.byteLength(f.content), hash: crypto.createHash('sha1').update(f.content).digest('hex'), url: `http://127.0.0.1:${port}/storage/data/${f.path}` }));
   let manifest = defaultManifest;
+  let diagnosticAccept = false;   // POST /utils/diagnostic : 404 par défaut (panel sans la route), 200 si activé
   const hits = [];
   let base = `http://127.0.0.1:${port}/`;
   const json = (res, code, body, extra = {}) => { res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', ...extra }); res.end(JSON.stringify(body)); };
@@ -104,6 +105,7 @@ export async function startMock(port = MOCK_PORT) {
         case '/utils/collecte': return json(res, 200, { active: false, state: 'idle', title: '', tier: 0, total: 0, goal: 0, bossAt: 0, bossLabel: '', top: [], countries: [] });
         case '/utils/wonder': return json(res, 200, { current: null, past: [] });
         case '/utils/telemetry': return json(res, 200, { ok: true });
+        case '/utils/diagnostic': if (req.method === 'POST' && diagnosticAccept) return json(res, 200, { ok: true }); break;
         case '/api-schema.json': return json(res, 200, { schemaVersion: '1.0.0' });
         case '/data': return json(res, 200, E ? [] : manifest);
         case '/api/rss': res.writeHead(200, { 'content-type': 'application/rss+xml' }); return res.end('<?xml version="1.0"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><title>t</title><item><title>Actu E2E</title><content:encoded><![CDATA[<p>Contenu de l\'actu</p>]]></content:encoded><dc:creator>e2e</dc:creator><pubDate>Mon, 05 Oct 2026 10:00:00 +0000</pubDate></item></channel></rss>');
@@ -122,6 +124,7 @@ export async function startMock(port = MOCK_PORT) {
   await new Promise(r => server.listen(port, '127.0.0.1', r));
   return {
     url: base, setMode: m => { mode = m; }, hits, clearHits: () => { hits.length = 0; },
+    setDiagnosticAccept: v => { diagnosticAccept = !!v; },
     setManifest: m => { manifest = m ?? defaultManifest; },
     close: () => new Promise(r => { server.closeAllConnections?.(); server.close(r); }),
   };
