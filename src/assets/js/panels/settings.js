@@ -38,7 +38,7 @@ class Settings {
         this.config = config;
         this.database = await new database().init();
         this.initSettingsDefault();
-        this.hw = await this.detectHardware();
+        this.hw = this.detectHardware();
         this.initTab();
         this.initAccount();
         this.initRam();
@@ -57,28 +57,42 @@ class Settings {
 
     // ----- Matériel (profils de performance + diagnostic) -----
     // NEXUS_SIM_RAM_GB / NEXUS_SIM_FREE_GB / NEXUS_SIM_CORES : simulation pour les tests E2E uniquement.
-    async detectHardware() {
+    detectHardware() {
         const env = process.env;
         const simRam = Number(env.NEXUS_SIM_RAM_GB);
         const cpus = os.cpus() || [];
         const cores = Number(env.NEXUS_SIM_CORES) > 0 ? Number(env.NEXUS_SIM_CORES) : (cpus.length || 1);
-        let gpu = env.NEXUS_SIM_GPU || null;
-        if (!gpu) {
-            try {
-                const info = await Promise.race([
-                    ipcRenderer.invoke('get-gpu-info'),
-                    new Promise(resolve => setTimeout(() => resolve(null), 4000)),
-                ]);
-                gpu = info && info.name ? info.name : null;
-            } catch { /* GPU facultatif */ }
-        }
         return {
             totalGb: simRam > 0 ? simRam : toGb(os.totalmem()),
             freeGb: Number(env.NEXUS_SIM_FREE_GB) > 0 ? Number(env.NEXUS_SIM_FREE_GB) : toGb(os.freemem()),
             cores,
             cpuModel: (cpus[0] && cpus[0].model ? cpus[0].model : 'CPU').replace(/\s+/g, ' ').trim(),
-            gpu,
+            gpu: env.NEXUS_SIM_GPU || null,
         };
+    }
+
+    // GPU : récupéré en arrière-plan (jamais bloquant pour l'ouverture des réglages).
+    detectGpu() {
+        if (this.hw.gpu) return Promise.resolve(this.hw.gpu);
+        if (!this._gpuPromise) {
+            this._gpuPromise = Promise.race([
+                ipcRenderer.invoke('get-gpu-info'),
+                new Promise(resolve => setTimeout(() => resolve(null), 4000)),
+            ]).then(info => {
+                this.hw.gpu = info && info.name ? info.name : null;
+                this.renderHardwareLine();
+                return this.hw.gpu;
+            }).catch(() => null);
+        }
+        return this._gpuPromise;
+    }
+
+    renderHardwareLine() {
+        const el = document.getElementById('perf-hw');
+        const hw = this.hw;
+        if (!el || !hw) return;
+        el.textContent = t('perf_hw').replace('{ram}', hw.totalGb).replace('{free}', hw.freeGb)
+            .replace('{cores}', hw.cores).replace('{cpu}', hw.cpuModel).replace('{gpu}', hw.gpu || t('perf_gpu_unknown'));
     }
 
     initSkinDropzone() {
@@ -887,8 +901,8 @@ class Settings {
         set('jvm-args-label', t('jvm_args_label'));
         jvmInput.title = t('jvm_args_help');
         jvmInput.placeholder = t('jvm_args_help');
-        set('perf-hw', t('perf_hw').replace('{ram}', hw.totalGb).replace('{free}', hw.freeGb)
-            .replace('{cores}', hw.cores).replace('{cpu}', hw.cpuModel).replace('{gpu}', hw.gpu || t('perf_gpu_unknown')));
+        this.renderHardwareLine();
+        this.detectGpu();
 
         const recommended = recommendProfile(hw.totalGb, hw.cores);
         for (const opt of select.options) {
@@ -1002,6 +1016,7 @@ class Settings {
                 const javaPath = (await this.database.get('1234', 'java-path'))?.value?.path;
                 const jvm = (await this.database.get('1234', 'java-args'))?.value?.args;
                 const st = this._perfStored();
+                await this.detectGpu();
                 const report = await collectDiagnostic({
                     pkg, config: this.config, gameDir: gameDir(), settingsUrl: settings_url,
                     azauthUrl: this.getAzAuthUrl(), instance: localStorage.getItem('geoventure_selected_instance'),
