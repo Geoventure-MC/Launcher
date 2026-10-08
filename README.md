@@ -93,6 +93,14 @@ Pour voir les messages du launcher lui-même sous Linux, lance-le depuis un term
 
 Le patch Forge prépare le jeu (quelques secondes à quelques minutes la première fois). S'il échoue ou ne répond plus pendant 3 minutes, le launcher affiche maintenant l'erreur en rouge et rend le bouton **Jouer**. Envoie-nous le contenu de `logs/launcher.log` (ou le bouton **Exporter** de la console) sur le [Discord](https://discord.gg/VCmNXHvf77) ou dans une [issue](https://github.com/Geoventure-MC/Launcher/issues). Vérifie aussi ta connexion : le patch télécharge des fichiers chez Mojang.
 
+### Dépannage : le jeu rame ou plante (profils de performance)
+
+**Réglages → Avancé → Performances → « Optimiser pour ma machine »** détecte ta RAM, ton CPU et ton GPU, puis propose un profil **Économique / Équilibré / Performant** (RAM min/max et arguments Java 17 G1GC ou ZGC). Rien n'est appliqué sans confirmation, le launcher n'alloue **jamais plus de 60 % de ta RAM**, et le modpack demande **au moins 3 Go** : en dessous (moins de 5 Go de RAM au total), un avertissement s'affiche et aucun profil n'est appliqué. La distance de rendu conseillée est affichée à titre indicatif (à régler en jeu). Tout reste modifiable à la main : curseurs RAM et champ « Arguments JVM » (`-Xms`/`-Xmx` y sont ignorés).
+
+### Dépannage : rapport de diagnostic en 1 clic
+
+**Réglages → Avancé → Diagnostic → « Générer le rapport »** produit un texte avec : version du launcher, OS/architecture (et session Wayland/X11 sous Linux), RAM/CPU/GPU, Java détecté ou téléchargé, instance active, 300 dernières lignes de `logs/launcher.log` et `logs/latest.log`, et un test de joignabilité (avec latence) du panel, de Mojang, de Forge et d'Azuriom. Les jetons, mots de passe, e-mails et chemins personnels (ton dossier utilisateur devient `~`) sont **masqués**. Boutons : **Copier**, **Enregistrer en .txt**, **Ouvrir le dossier de logs**, et **Envoyer au panel** (uniquement si tu cliques ; si le panel ne gère pas encore les rapports, le launcher l'indique et rien n'est perdu). Relis toujours le rapport avant de le partager.
+
 ---
 
 ## Fonctionnalités
@@ -110,7 +118,8 @@ Le patch Forge prépare le jeu (quelques secondes à quelques minutes la premiè
 | **News** | Actualités du serveur intégrées |
 | **Résilience réseau** | Gestion robuste des erreurs : garde-fous auth, vérification `response.ok`, fallbacks 502/404, récupération d'erreur au lancement, **mode hors-ligne intelligent** (dernière config en cache si le panel est injoignable) |
 | **Télémétrie (opt-in)** | Statistiques anonymes (lancements, OS, version) envoyées au panel pour le tableau de bord admin |
-| **RAM** | Configuration MIN/MAX RAM dans les réglages |
+| **RAM & performances** | Configuration MIN/MAX RAM, profils Économique/Équilibré/Performant (« Optimiser pour ma machine ») et arguments JVM éditables |
+| **Diagnostic** | Rapport 1 clic (système, matériel, logs, joignabilité) avec secrets masqués, copie/export/envoi optionnel au panel |
 | **Discord** | Rich Presence automatique pendant le jeu |
 | **Stats perso** | 📈 Temps de jeu total et par instance, graphe des 30 derniers jours, records (session la plus longue, jours consécutifs) dans le profil |
 | **Joueurs en ligne** | 👥 Tooltip avec pseudos et avatars au survol des pastilles serveurs |
