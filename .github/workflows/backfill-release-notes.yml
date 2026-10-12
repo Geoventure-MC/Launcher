@@ -1,0 +1,32 @@
+# Rattrape le titre (« Nexus vX ») et les notes des anciennes releases.
+# Se lance À LA MAIN : Actions > « Rattraper les notes de release » > Run workflow.
+# Par défaut en simulation (rien n'est écrit) : décocher « simulation » pour appliquer.
+name: Rattraper les notes de release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Simulation (n'écrit rien)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Rattrape les releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python3 tools/backfill_release_notes.py
+          else
+            python3 tools/backfill_release_notes.py --apply
+          fi

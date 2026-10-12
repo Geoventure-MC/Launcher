@@ -146,6 +146,7 @@
     "changelog_view_github": "Voir sur GitHub",
     "changelog_loading": "Chargement des nouveautés…",
     "changelog_error": "Impossible de charger les nouveautés (hors ligne ou limite GitHub atteinte).",
+    "changelog_rate_limited": "GitHub limite le nombre de demandes depuis ta connexion. Réessaie dans une heure, ou ouvre la liste sur GitHub.",
     "changelog_empty": "Aucune version publiée.",
     "changelog_no_notes": "Pas de notes de version.",
     "changelog_new": "NOUVEAU",

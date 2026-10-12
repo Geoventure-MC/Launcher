@@ -168,7 +168,7 @@ jobs:
           FEATS=$(echo "$REST"    | grep -vE '^(Correction|Corrige|Fix|Hotfix|Bugfix|Répar|Optimisation|Amélioration|Perf|Robustesse|Stabilité)' || true)
           section() { if [ -n "$2" ]; then echo "### $1"; echo ""; echo "$2" | sed 's/^/- /'; echo ""; fi; }
           {
-            echo "# 🚀 Conflictura Launcher v${VERSION}"
+            echo "# 🚀 Nexus v${VERSION}"
             echo ""
             echo "> Le launcher officiel de **Geoventure-MC** — multi-instances, mods et thèmes automatiques."
             echo ""
@@ -190,10 +190,9 @@ jobs:
             echo ""
             echo "| Plateforme | Fichier |"
             echo "|---|---|"
-            echo "| **Windows** | \`Conflictura Launcher Setup ${VERSION}.exe\` |"
-            echo "| **macOS Apple Silicon** | \`Conflictura Launcher-${VERSION}-arm64.dmg\` |"
-            echo "| **macOS Intel** | \`Conflictura Launcher-${VERSION}.dmg\` |"
-            echo "| **Linux** | \`Conflictura Launcher-${VERSION}.AppImage\` |"
+            echo "| **Windows** | \`Nexus-win-x64.exe\` |"
+            echo "| **macOS (Apple Silicon)** | \`Nexus-mac-arm64.dmg\` |"
+            echo "| **Linux (x86_64)** | \`Nexus-linux-x86_64.AppImage\` |"
             echo ""
             echo "### 🔄 Mise à jour automatique"
             echo ""
@@ -204,7 +203,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.prepare.outputs.version }}
-          name: "Conflictura Launcher v${{ needs.prepare.outputs.version }}"
+          name: "Nexus v${{ needs.prepare.outputs.version }}"
           body_path: RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

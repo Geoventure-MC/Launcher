@@ -146,6 +146,7 @@
     "changelog_view_github": "View on GitHub",
     "changelog_loading": "Loading changelog…",
     "changelog_error": "Unable to load the changelog (offline or GitHub rate limit reached).",
+    "changelog_rate_limited": "GitHub is limiting requests from your connection. Try again in an hour, or open the list on GitHub.",
     "changelog_empty": "No releases published.",
     "changelog_no_notes": "No release notes.",
     "changelog_new": "NEW",
