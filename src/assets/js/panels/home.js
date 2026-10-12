@@ -12,6 +12,7 @@ import { sanitizeJvmArgs } from '../utils/perf.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory, getGameDirectoryFor } from '../utils/gamedir.js';
+import { applyForgeWindowSettings } from '../utils/forgeconfig.js';
 import { getInstallState, invalidateInstallState } from '../utils/installstate.js';
 import { withInstance } from '../utils/instance.js';
 import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
@@ -303,6 +304,7 @@ class Home {
         }
 
         await this.verifyModsBeforeLaunch();
+        applyForgeWindowSettings(this.gameDir());
         const opts = await this.getLaunchOptions();
         const playBtn = document.querySelector('.play-btn');
         const info = document.querySelector(".text-download");
