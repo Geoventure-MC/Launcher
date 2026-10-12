@@ -24,6 +24,9 @@ if (dev) {
     app.setPath('userData', appPath);
 }
 
+// Évite la fenêtre noire (cache/pilote GPU) : voir utils/startup-guard.js. Avant app.whenReady().
+if (!dev) require('./assets/js/utils/startup-guard.js').install(app);
+
 if (!app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(() => {
     if (dev) return MainWindow.createWindow()
