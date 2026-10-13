@@ -13,6 +13,7 @@ import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory, getGameDirectoryFor } from '../utils/gamedir.js';
 import { applyForgeWindowSettings } from '../utils/forgeconfig.js';
+import { userKeepList } from '../utils/userdata.js';
 import { getInstallState, invalidateInstallState } from '../utils/installstate.js';
 import { withInstance } from '../utils/instance.js';
 import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
@@ -353,6 +354,8 @@ class Home {
             ignored: [
                 ...(Array.isArray(this.config.ignored) ? this.config.ignored : Object.values(this.config.ignored)),
                 "launcher_config",
+                // Réglages du joueur et configs des mods : jamais écrasés ni supprimés par une mise à jour.
+                ...userKeepList(this.gameDir()),
             ],
             intelEnabledMac: process.platform === 'darwin' && process.arch === 'arm64',
             JVM_ARGS: jvmArgs,

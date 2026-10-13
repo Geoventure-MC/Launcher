@@ -15,6 +15,7 @@ import { withInstance } from '../utils/instance.js';
 import { getAzAuthUrl } from '../utils/config.js';
 import { toGb, recommendProfile, buildProfile, sanitizeJvmArgs, PROFILE_IDS } from '../utils/perf.js';
 import { collectDiagnostic } from '../utils/diagnostic.js';
+import { isUserPath } from '../utils/userdata.js';
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -1147,6 +1148,7 @@ class Settings {
 
         for (const entry of manifest) {
             if (!entry || typeof entry.path !== 'string' || !entry.path) continue;
+            if (isUserPath(entry.path)) continue;   // réglages du joueur : jamais supprimés
 
             const filePath = path.join(gameDir, entry.path);
             // Anti path-traversal : on reste dans le dossier de jeu.
