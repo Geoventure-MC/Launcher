@@ -104,6 +104,7 @@ class Home {
         this.initLauncherContent();
         this.initInstanceBack();
         this.initUpcomingEvents();
+        this.initGameEvents();
         this.initWhatsNew();
         this.initAffluence();
 
@@ -1586,6 +1587,125 @@ class Home {
         // Compte à rebours re-rendu toutes les 30 s, données rafraîchies toutes les 5 min.
         this._eventsTickTimer = setInterval(() => { if (this._upcomingEvents) render(this._upcomingEvents); }, 30000);
         this._eventsRefreshTimer = setInterval(refresh, 300000);
+    }
+
+    // Carte « événement de jeu » (Halloween, Noël…) : GET /utils/game-events,
+    // endpoint GLOBAL (pas de ?instance=). Au plus 2 événements upcoming/open,
+    // compte à rebours local chaque seconde, re-fetch toutes les 5 min avec
+    // ETag/If-None-Match (304 = rien à faire). Toute erreur (non-ok, 502 HTML,
+    // JSON invalide, réseau coupé) masque simplement la carte. Rendu en DOM
+    // (textContent) : le nom vient du panel, jamais d'innerHTML.
+    async initGameEvents() {
+        const card = document.getElementById('game-events-card');
+        if (!card) return;
+        clearInterval(this._gameEventsTick);
+        clearInterval(this._gameEventsRefresh);
+
+        const tr = (key, fallback) => { const v = t(key); return v && v !== key ? v : fallback; };
+        const hide = () => { card.style.display = 'none'; card.replaceChildren(); };
+
+        const fmtLeft = (ms) => {
+            let s = Math.max(0, Math.floor(ms / 1000));
+            const d = Math.floor(s / 86400); s %= 86400;
+            const h = Math.floor(s / 3600); s %= 3600;
+            const m = Math.floor(s / 60); s %= 60;
+            const u = { d: tr('gev_unit_d', 'j'), h: tr('gev_unit_h', 'h'), m: tr('gev_unit_m', 'min'), s: tr('gev_unit_s', 's') };
+            if (d > 0) return `${d} ${u.d} ${h} ${u.h}`;
+            if (h > 0) return `${h} ${u.h} ${m} ${u.m}`;
+            if (m > 0) return `${m} ${u.m} ${s} ${u.s}`;
+            return `${s} ${u.s}`;
+        };
+        const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+        // Phase effective, recalculée localement : un « upcoming » dont la date
+        // d'ouverture est passée devient « open », un événement terminé disparaît.
+        const effective = (list, now) => {
+            const out = [];
+            for (const e of Array.isArray(list) ? list : []) {
+                if (!e || typeof e !== 'object' || e.enabled === false) continue;
+                const opensAt = num(e.opensAt), endsAt = num(e.endsAt);
+                let phase = e.phase;
+                if (phase !== 'upcoming' && phase !== 'open') continue;
+                if (endsAt !== null && endsAt <= now) continue;
+                if (phase === 'upcoming' && opensAt !== null && opensAt <= now) phase = 'open';
+                if (phase === 'upcoming' && opensAt === null) continue; // pas de compte à rebours possible
+                out.push({ slug: String(e.slug || ''), name: String(e.name || e.slug || ''), phase, opensAt, endsAt });
+            }
+            out.sort((a, b) => {
+                if (a.phase !== b.phase) return a.phase === 'open' ? -1 : 1;
+                const ka = a.phase === 'open' ? (a.endsAt ?? Infinity) : a.opensAt;
+                const kb = b.phase === 'open' ? (b.endsAt ?? Infinity) : b.opensAt;
+                return ka - kb;
+            });
+            return out.slice(0, 2);
+        };
+
+        const render = () => {
+            const now = Date.now();
+            const events = effective(this._gameEvents, now);
+            if (!events.length) return hide();
+            const key = events.map(e => `${e.slug}|${e.phase}|${e.name}`).join(';');
+            if (key !== this._gameEventsKey || !card.children.length) {
+                this._gameEventsKey = key;
+                const title = document.createElement('div');
+                title.className = 'game-events-title';
+                title.textContent = tr('game_events_title', 'Événement');
+                const rows = events.map(e => {
+                    const row = document.createElement('div');
+                    row.className = `game-event-row game-event-${e.phase}`;
+                    row.dataset.slug = /^[a-z0-9_-]{1,40}$/i.test(e.slug) ? e.slug.toLowerCase() : '';
+                    const badge = document.createElement('span');
+                    badge.className = 'gev-badge';
+                    badge.textContent = e.phase === 'open' ? tr('game_event_badge_open', 'EN COURS') : tr('game_event_badge_upcoming', 'BIENTÔT');
+                    const name = document.createElement('span');
+                    name.className = 'gev-name';
+                    name.textContent = e.name;
+                    const count = document.createElement('span');
+                    count.className = 'gev-count';
+                    row.append(badge, name, count);
+                    return row;
+                });
+                card.replaceChildren(title, ...rows);
+            }
+            const rows = card.querySelectorAll('.game-event-row');
+            events.forEach((e, i) => {
+                const count = rows[i]?.querySelector('.gev-count');
+                if (!count) return;
+                let text;
+                if (e.phase === 'upcoming') text = tr('game_event_opens_in', 'ouvre dans {t}').replace('{t}', fmtLeft(e.opensAt - now));
+                else if (e.endsAt !== null) text = tr('game_event_ends_in', 'en cours, se termine dans {t}').replace('{t}', fmtLeft(e.endsAt - now));
+                else text = tr('game_event_running', 'en cours');
+                if (count.textContent !== text) count.textContent = text;
+            });
+            card.style.display = 'block';
+        };
+
+        const refresh = async () => {
+            try {
+                const base = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
+                const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+                if (this._gameEventsEtag) headers['If-None-Match'] = this._gameEventsEtag;
+                const res = await fetch(`${base}utils/game-events`, {
+                    headers, cache: 'no-store', signal: AbortSignal.timeout(5000),
+                });
+                if (res.status === 304) return;            // rien n'a changé côté panel
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();             // HTML (502) → SyntaxError → catch
+                if (!Array.isArray(data)) throw new Error('format');
+                this._gameEvents = data;
+                this._gameEventsEtag = res.headers.get('etag') || null;
+                this._gameEventsKey = null;
+                render();
+            } catch {
+                this._gameEvents = null;
+                this._gameEventsEtag = null;
+                hide();
+            }
+        };
+
+        await refresh();
+        this._gameEventsTick = setInterval(() => { try { render(); } catch { hide(); } }, 1000);
+        this._gameEventsRefresh = setInterval(refresh, 300000);
     }
 
     // Affluence : mini-graphe en barres (divs CSS, aucune lib) alimenté par

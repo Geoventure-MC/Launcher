@@ -59,13 +59,21 @@ export const FIXTURES = {
   mods: { optionalMods: ['minimap.jar', 'ghost.jar'], mods: { 'minimap.jar': { name: 'Mini-carte', description: 'Une minicarte', icon: null, recommanded: true } } },
   changelog: [], launcherContent: { news_banners: [], shortcuts: [], discover: [] }, scheduledEvents: [],
   history: { points: [], peakHours: [] },
+  // Dates relatives à « maintenant » : un événement ouvert (fin dans ~5 j 3 h) et un à venir (ouverture dans ~2 j 4 h).
+  gameEvents: (now = Date.now()) => [
+    { slug: 'noel', name: 'Noël', enabled: true, phase: 'upcoming', opensAt: now + (2 * 86400 + 4 * 3600 + 120) * 1000, endsAt: now + 20 * 86400000, settings: {} },
+    { slug: 'halloween', name: 'Halloween', enabled: true, phase: 'open', opensAt: now - 86400000, endsAt: now + (5 * 86400 + 3 * 3600 + 120) * 1000, settings: { mob_cap: 60 } },
+    { slug: 'paques', name: 'Pâques', enabled: false, phase: 'disabled', opensAt: null, endsAt: null, settings: {} },
+    { slug: 'ete', name: 'Été', enabled: true, phase: 'ended', opensAt: now - 9e8, endsAt: now - 1e8, settings: {} },
+  ],
 };
 
 export async function startMock(port = MOCK_PORT) {
   let mode = 'ok';
   const defaultManifest = MANIFEST_FILES.map(f => ({ path: f.path, size: Buffer.byteLength(f.content), hash: crypto.createHash('sha1').update(f.content).digest('hex'), url: `http://127.0.0.1:${port}/storage/data/${f.path}` }));
   let manifest = defaultManifest;
-  let diagnosticAccept = false;   // POST /utils/diagnostic : 404 par défaut (panel sans la route), 200 si activé
+  let diagnosticAccept = false;
+  let gameEvents = null;          // null = FIXTURES.gameEvents() ; tableau = données imposées ; 'html502' = cette route seule en 502 HTML   // POST /utils/diagnostic : 404 par défaut (panel sans la route), 200 si activé
   const hits = [];
   let base = `http://127.0.0.1:${port}/`;
   const json = (res, code, body, extra = {}) => { res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', ...extra }); res.end(JSON.stringify(body)); };
@@ -104,6 +112,13 @@ export async function startMock(port = MOCK_PORT) {
         case '/utils/servers-history': return json(res, 200, FIXTURES.history);
         case '/utils/collecte': return json(res, 200, { active: false, state: 'idle', title: '', tier: 0, total: 0, goal: 0, bossAt: 0, bossLabel: '', top: [], countries: [] });
         case '/utils/wonder': return json(res, 200, { current: null, past: [] });
+        case '/utils/game-events': {
+          if (gameEvents === 'html502') { res.writeHead(502, { 'content-type': 'text/html' }); return res.end('<html><body><h1>502 Bad Gateway</h1></body></html>'); }
+          const list = E ? [] : (Array.isArray(gameEvents) ? gameEvents : FIXTURES.gameEvents());
+          const etag = '"' + crypto.createHash('sha1').update(JSON.stringify(list.map(e => [e.slug, e.name, e.phase]))).digest('hex').slice(0, 16) + '"';
+          if (req.headers['if-none-match'] === etag) { res.writeHead(304, { etag }); return res.end(); }
+          return json(res, 200, list, { etag, 'cache-control': 'max-age=30' });
+        }
         case '/utils/telemetry': return json(res, 200, { ok: true });
         case '/utils/diagnostic': if (req.method === 'POST' && diagnosticAccept) return json(res, 200, { ok: true }); break;
         case '/api-schema.json': return json(res, 200, { schemaVersion: '1.0.0' });
@@ -125,6 +140,7 @@ export async function startMock(port = MOCK_PORT) {
   return {
     url: base, setMode: m => { mode = m; }, hits, clearHits: () => { hits.length = 0; },
     setDiagnosticAccept: v => { diagnosticAccept = !!v; },
+    setGameEvents: v => { gameEvents = v ?? null; },
     setManifest: m => { manifest = m ?? defaultManifest; },
     close: () => new Promise(r => { server.closeAllConnections?.(); server.close(r); }),
   };

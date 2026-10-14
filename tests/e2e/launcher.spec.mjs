@@ -60,6 +60,27 @@ test.describe('home (panel OK)', () => {
     await expect(banner.locator('.notification-item')).toHaveCount(1);
   });
 
+  test('carte d\'événement : en cours d\'abord (accent halloween), puis à venir, compte à rebours vivant', async () => {
+    const card = L.win.locator('#game-events-card');
+    await expect(card).toBeVisible({ timeout: 10000 });
+    const rows = card.locator('.game-event-row');
+    await expect(rows).toHaveCount(2);                           // disabled / ended ignorés
+    await expect(rows.nth(0)).toHaveAttribute('data-slug', 'halloween');
+    await expect(rows.nth(0)).toHaveClass(/game-event-open/);
+    await expect(rows.nth(0).locator('.gev-name')).toHaveText('Halloween');
+    await expect(rows.nth(0).locator('.gev-count')).toContainText(/5\D+3\D/);   // ~5 j 3 h (indépendant de la langue)
+    await expect(rows.nth(1)).toHaveClass(/game-event-upcoming/);
+    await expect(rows.nth(1).locator('.gev-name')).toHaveText('Noël');
+    await expect(rows.nth(1).locator('.gev-count')).toContainText(/2\D+4\D/);   // ~2 j 4 h
+    const accent = await rows.nth(0).evaluate(el => getComputedStyle(el).getPropertyValue('--gev-accent').trim());
+    expect(accent.toLowerCase()).toBe('#fb923c');
+    // endpoint global : jamais de ?instance=
+    const gev = mock.hits.filter(h => h.path === '/utils/game-events');
+    expect(gev.length).toBeGreaterThan(0);
+    expect(gev.every(h => !h.query.includes('instance'))).toBeTruthy();
+    await shot(L.win, 'home-game-events');
+  });
+
   test('contrat réseau : appels avec ?instance=geoventure vers le panel', async () => {
     const paths = mock.hits.map(h => h.path + h.query);
     expect(paths.some(p => p.startsWith('/utils/api?instance=geoventure'))).toBeTruthy();
@@ -70,6 +91,48 @@ test.describe('home (panel OK)', () => {
 
   test('aucune erreur JS non gérée', async () => {
     expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+  });
+});
+
+test.describe('carte d\'événement de jeu', () => {
+  test('nom hostile affiché en texte, compte à rebours qui avance, carte masquée si l\'endpoint renvoie 502', async () => {
+    mock.setMode('ok');
+    const now = Date.now();
+    mock.setGameEvents([{ slug: 'x"><img src=x onerror=alert(1)>', name: '<script>window.__pwned=1</script><b>Fête</b>', enabled: true, phase: 'upcoming', opensAt: now + 90 * 1000, endsAt: now + 3600000, settings: {} }]);
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      const row = L.win.locator('#game-events-card .game-event-row');
+      await expect(row).toHaveCount(1, { timeout: 10000 });
+      await expect(row.locator('.gev-name')).toHaveText('<script>window.__pwned=1</script><b>Fête</b>');
+      expect(await L.win.locator('#game-events-card script, #game-events-card b, #game-events-card img').count()).toBe(0);
+      expect(await L.win.evaluate(() => window.__pwned)).toBeUndefined();
+      await expect(row).toHaveAttribute('data-slug', '');        // slug non conforme : aucun accent
+      const first = await row.locator('.gev-count').textContent();
+      await expect.poll(() => row.locator('.gev-count').textContent(), { timeout: 5000 }).not.toBe(first); // tic chaque seconde, sans re-fetch
+
+      mock.setGameEvents('html502');
+      mock.clearHits();
+      await L.win.reload();
+      await panelActive(L.win, 'home');
+      await expect.poll(() => mock.hits.filter(h => h.path === '/utils/game-events').length, { timeout: 10000 }).toBeGreaterThan(0);
+      await L.win.waitForTimeout(500);
+      await expect(L.win.locator('#game-events-card')).toBeHidden();
+      expect(fatal(L.logs).map(l => l.text)).toEqual([]);
+    } finally { mock.setGameEvents(null); await L.close(); }
+  });
+
+  test('seulement des événements terminés : carte masquée', async () => {
+    mock.setMode('ok');
+    mock.setGameEvents([{ slug: 'ete', name: 'Été', enabled: true, phase: 'ended', opensAt: 1, endsAt: 2, settings: {} }]);
+    mock.clearHits();
+    const L = await launchLauncher(mock);
+    try {
+      await panelActive(L.win, 'home');
+      await expect.poll(() => mock.hits.filter(h => h.path === '/utils/game-events').length, { timeout: 10000 }).toBeGreaterThan(0);
+      await L.win.waitForTimeout(800);
+      await expect(L.win.locator('#game-events-card')).toBeHidden();
+    } finally { mock.setGameEvents(null); await L.close(); }
   });
 });
 
@@ -110,6 +173,7 @@ test.describe('résilience aux erreurs du panel', () => {
       await panelActive(L.win, 'home');
       await expect(L.win.locator('#offline-badge')).toBeVisible({ timeout: 10000 });
       await shot(L.win, 'home-502-horsligne');
+      await expect(L.win.locator('#game-events-card')).toBeHidden();
       expect(fatal(L.logs).map(l => l.text)).toEqual([]);
       // aucune pastille ne reste bloquée dans « vérification »
       await expect.poll(() => L.win.locator('.server-pill[data-install-state="checking"]').count(), { timeout: 15000 }).toBe(0);
@@ -131,6 +195,7 @@ test.describe('résilience aux erreurs du panel', () => {
     const L = await launchLauncher(mock);
     try {
       await expect(L.win.locator('#preload-title')).toContainText(/Impossible de joindre le serveur/, { timeout: 15000 });
+      await expect(L.win.locator('#game-events-card')).toBeHidden();
       expect(fatal(L.logs).map(l => l.text)).toEqual([]);
     } finally { mock.setMode('ok'); await L.close(); }
   });
@@ -141,6 +206,7 @@ test.describe('résilience aux erreurs du panel', () => {
     try {
       await L.win.waitForTimeout(6000);
       await shot(L.win, 'home-json-vide');
+      await expect(L.win.locator('#game-events-card')).toBeHidden();
       expect(fatal(L.logs).map(l => l.text)).toEqual([]);
     } finally { mock.setMode('ok'); await L.close(); }
   });
