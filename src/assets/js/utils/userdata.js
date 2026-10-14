@@ -20,6 +20,9 @@ const USER_FILES = [
 const USER_DIRS = [
     'saves', 'screenshots', 'resourcepacks', 'shaderpacks', 'logs', 'crash-reports', 'schematics',
     'journeymap', 'xaero', 'XaeroWorldMap', 'XaeroWaypoints', 'backups', 'replay_recordings',
+    // Les autres instances (Elandor, Pokeland…) vivent DANS le dossier de l'instance par défaut :
+    // sans ceci, la vérification du modpack de Geoventure les supprimait entièrement.
+    'instances',
 ];
 
 function walk(dir, base, out, depth = 0) {
