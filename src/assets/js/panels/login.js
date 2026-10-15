@@ -7,6 +7,7 @@
  */
 import { database, changePanel, addAccount, accountSelect, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
 import { getAzAuthUrl } from '../utils/config.js';
+import { openExternal } from '../utils/external.js';
 const { AZauth } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const pkg = require('../package.json');
@@ -50,15 +51,15 @@ class Login {
 
     async initPreviewSkin() {
         const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-        const websiteUrl = pkg.env === 'azuriom' ? `${baseUrl}` : (this.config.azauth || baseUrl);
+        const websiteUrl = getAzAuthUrl(this.config) || baseUrl;
         const uuidRecord = await this.database.get('1234', 'accounts-selected');
         if (!uuidRecord?.value?.selected) return;
         const accountRecord = await this.database.get(uuidRecord.value.selected, 'accounts');
         if (!accountRecord?.value) return;
         const account = accountRecord.value;
 
-        document.querySelector('.player-skin-title').innerHTML = `${t('skin_of')} ${account.name}`;
-        document.querySelector('.skin-renderer-settings').src = `${websiteUrl}skin3d/3d-api/skin-api/${account.name}`;
+        document.querySelector('.player-skin-title').textContent = `${t('skin_of')} ${account.name}`;
+        document.querySelector('.skin-renderer-settings').src = `${websiteUrl}skin3d/3d-api/skin-api/${encodeURIComponent(account.name)}`;
     }
 
     async initOthers() {
@@ -77,7 +78,9 @@ class Login {
     updateRole(account) {
         if (this.config.role && account.user_info.role) {
             const blockRole = document.createElement("div");
-            blockRole.innerHTML = `<div>${t('grade')}: ${account.user_info.role.name}</div>`;
+            const line = document.createElement('div');
+            line.textContent = `${t('grade')}: ${account.user_info.role.name}`;
+            blockRole.appendChild(line);
             document.querySelector('.player-role').appendChild(blockRole);
         } else {
             document.querySelector(".player-role").style.display = "none";
@@ -87,7 +90,9 @@ class Login {
     updateMoney(account) {
         if (this.config.money) {
             const blockMonnaie = document.createElement("div");
-            blockMonnaie.innerHTML = `<div>${account.user_info.monnaie} pts</div>`;
+            const line = document.createElement('div');
+            line.textContent = `${account.user_info.monnaie} pts`;
+            blockMonnaie.appendChild(line);
             document.querySelector('.player-monnaie').appendChild(blockMonnaie);
         } else {
             document.querySelector(".player-monnaie").style.display = "none";
@@ -188,11 +193,11 @@ class Login {
 
         this.newuser = document.querySelector(".new-user");
         this.newuser.innerHTML = t('no_account');
-        this.newuser.addEventListener('click', () => shell.openExternal(newuserurl));
+        this.newuser.addEventListener('click', () => openExternal(newuserurl));
 
         this.passwordreset = document.querySelector(".password-reset");
         this.passwordreset.innerHTML = t('forgot_password');
-        this.passwordreset.addEventListener('click', () => shell.openExternal(passwordreseturl));
+        this.passwordreset.addEventListener('click', () => openExternal(passwordreseturl));
     }
 
     setupEventListeners(elements, azauth) {

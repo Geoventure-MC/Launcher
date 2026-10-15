@@ -95,12 +95,16 @@ function addAccount(data) {
     const div = document.createElement("div");
     div.classList.add("account");
     div.id = data.uuid;
+    // Pseudo et uuid viennent d'Azuriom : insérés en TEXTE (jamais interprétés comme du HTML).
     div.innerHTML = `
-        <img class="account-image" src="${azauth}api/skin-api/avatars/face/${data.name}/?t=${timestamp}">
-        <div class="account-name">${data.name}</div>
-        <div class="account-uuid">${data.uuid}</div>
+        <img class="account-image">
+        <div class="account-name"></div>
+        <div class="account-uuid"></div>
         <div class="account-delete"><div class="icon-account-delete icon-account-delete-btn"></div></div>
     `;
+    div.querySelector('.account-image').src = `${azauth}api/skin-api/avatars/face/${encodeURIComponent(String(data.name || ''))}/?t=${timestamp}`;
+    div.querySelector('.account-name').textContent = String(data.name || '');
+    div.querySelector('.account-uuid').textContent = String(data.uuid || '');
     document.querySelector('.accounts').appendChild(div);
 }
 
@@ -118,8 +122,8 @@ function headplayer(pseudo) {
     if (!pseudo) return;
     const azauth = _getAzAuthUrl();
     const timestamp = new Date().getTime();
-    const skin_url = `${azauth}api/skin-api/avatars/face/${pseudo}/?t=${timestamp}`;
-    document.querySelector(".player-head").style.backgroundImage = `url(${skin_url})`;
+    const skin_url = `${azauth}api/skin-api/avatars/face/${encodeURIComponent(pseudo)}/?t=${timestamp}`;
+    document.querySelector(".player-head").style.backgroundImage = `url("${skin_url}")`;
 }
 
 function _getAzAuthUrl() {

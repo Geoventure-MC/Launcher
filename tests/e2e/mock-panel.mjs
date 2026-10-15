@@ -73,6 +73,11 @@ export async function startMock(port = MOCK_PORT) {
   const defaultManifest = MANIFEST_FILES.map(f => ({ path: f.path, size: Buffer.byteLength(f.content), hash: crypto.createHash('sha1').update(f.content).digest('hex'), url: `http://127.0.0.1:${port}/storage/data/${f.path}` }));
   let manifest = defaultManifest;
   let diagnosticAccept = false;
+  let apiOver = {};               // champs imposés dans /utils/api (tests de sécurité : alert_msg, maintenance…)
+  let modsOverride = null;        // réponse imposée de /utils/mods
+  let communityMods = null;       // null = 404 ; tableau = /utils/community-mods
+  let authMode = 'ok';            // 'html502' : /api/auth/* répond 502 HTML (Azuriom en panne)
+  let mojangMode = 'html502';     // launchermeta.mojang.com redirigé ici : 502 par défaut
   let gameEvents = null;          // null = FIXTURES.gameEvents() ; tableau = données imposées ; 'html502' = cette route seule en 502 HTML   // POST /utils/diagnostic : 404 par défaut (panel sans la route), 200 si activé
   const hits = [];
   let base = `http://127.0.0.1:${port}/`;
@@ -97,7 +102,7 @@ export async function startMock(port = MOCK_PORT) {
       }
       const E = mode === 'empty';
       switch (p) {
-        case '/utils/api': return E ? json(res, 200, {}) : json(res, 200, apiConfig(base, mode === 'azauthnull' ? { azauth: null, servers: apiConfig(base).servers.map(s => ({ ...s, azauth: null })) } : {}));
+        case '/utils/api': return E ? json(res, 200, {}) : json(res, 200, { ...apiConfig(base, mode === 'azauthnull' ? { azauth: null, servers: apiConfig(base).servers.map(s => ({ ...s, azauth: null })) } : {}), ...apiOver });
         case '/utils/notifications': return json(res, 200, E ? [] : FIXTURES.notifications);
         case '/utils/servers-status': return json(res, 200, E ? [] : FIXTURES.statuses(true));
         case '/utils/achievements': return json(res, 200, E ? [] : FIXTURES.achievements);
@@ -105,7 +110,12 @@ export async function startMock(port = MOCK_PORT) {
         case '/utils/leaderboards': return json(res, 200, E ? [] : FIXTURES.leaderboards);
         case '/utils/factions': return json(res, 200, E ? [] : FIXTURES.factions);
         case '/utils/seasons': return json(res, 200, E ? { current: null, past: [] } : FIXTURES.seasons);
-        case '/utils/mods': return json(res, 200, E ? { optionalMods: [], mods: [] } : FIXTURES.mods);
+        case '/utils/mods': return json(res, 200, E ? { optionalMods: [], mods: [] } : (modsOverride || FIXTURES.mods));
+        case '/utils/community-mods': if (Array.isArray(communityMods)) return json(res, 200, communityMods); break;
+        case '/__jar/good.jar': res.writeHead(200, { 'content-type': 'application/java-archive' }); return res.end(Buffer.from('PK\x03\x04community-jar'));
+        case '/mc/game/version_manifest_v2.json':
+          if (mojangMode === 'html502') { res.writeHead(502, { 'content-type': 'text/html' }); return res.end('<html><body><h1>502 Bad Gateway</h1></body></html>'); }
+          break;
         case '/utils/changelog': return json(res, 200, FIXTURES.changelog);
         case '/utils/launcher-content': return json(res, 200, FIXTURES.launcherContent);
         case '/utils/scheduled-events': return json(res, 200, FIXTURES.scheduledEvents);
@@ -126,6 +136,7 @@ export async function startMock(port = MOCK_PORT) {
         case '/api/rss': res.writeHead(200, { 'content-type': 'application/rss+xml' }); return res.end('<?xml version="1.0"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><title>t</title><item><title>Actu E2E</title><content:encoded><![CDATA[<p>Contenu de l\'actu</p>]]></content:encoded><dc:creator>e2e</dc:creator><pubDate>Mon, 05 Oct 2026 10:00:00 +0000</pubDate></item></channel></rss>');
         case '/api/auth/verify':
         case '/api/auth/authenticate':
+          if (authMode === 'html502') { res.writeHead(502, { 'content-type': 'text/html' }); return res.end('<html><body><h1>502 Bad Gateway</h1></body></html>'); }
           return json(res, 200, { status: 'success', access_token: 'tok-e2e', uuid: '11111111-2222-3333-4444-555555555555', username: 'E2EPlayer', id: 7, banned: false, money: 500, role: { name: 'Joueur', color: '#fff' }, email_verified: true });
         case '/api/skin-api/skins/update': return json(res, 200, { status: 'success' });
       }
@@ -142,6 +153,10 @@ export async function startMock(port = MOCK_PORT) {
     setDiagnosticAccept: v => { diagnosticAccept = !!v; },
     setGameEvents: v => { gameEvents = v ?? null; },
     setManifest: m => { manifest = m ?? defaultManifest; },
+    setApiOver: o => { apiOver = o || {}; },
+    setMods: m => { modsOverride = m || null; },
+    setCommunityMods: m => { communityMods = m ?? null; },
+    setAuthMode: m => { authMode = m || 'ok'; },
     close: () => new Promise(r => { server.closeAllConnections?.(); server.close(r); }),
   };
 }

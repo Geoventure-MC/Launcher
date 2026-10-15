@@ -20,12 +20,28 @@ function getConfigUrl() {
     return withInstance(url);
 }
 
+// Mot de passe et jeton ne circulent jamais en clair : une adresse d'authentification en http:// est
+// passée en https:// (sauf boucle locale, pour le développement et les tests). Toute autre forme
+// (schéma inconnu, URL invalide) retombe sur l'adresse du panel.
+export function secureAuthUrl(url, fallback) {
+    try {
+        const u = new URL(String(url));
+        const local = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]';
+        if (u.protocol === 'http:' && !local) u.protocol = 'https:';
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('schéma refusé');
+        const href = u.href.split('#')[0].split('?')[0];
+        return href.endsWith('/') ? href : `${href}/`;
+    } catch {
+        return fallback === undefined ? null : fallback;
+    }
+}
+
 export function getAzAuthUrl(config) {
     const baseUrl = settings_url.endsWith('/') ? settings_url : `${settings_url}/`;
-    if (pkg.env === 'azuriom') return baseUrl;
+    if (pkg.env === 'azuriom') return secureAuthUrl(baseUrl, baseUrl);
     // Guard against a null/undefined azauth (panel auth not configured yet).
-    const az = (config && config.azauth) ? String(config.azauth) : baseUrl;
-    return az.endsWith('/') ? az : `${az}/`;
+    const az = (config && config.azauth) ? String(config.azauth).trim() : baseUrl;
+    return secureAuthUrl(az, null) || secureAuthUrl(baseUrl, baseUrl);
 }
 
 // Mode hors-ligne : la dernière config valide est mise en cache par instance ;

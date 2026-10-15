@@ -25,7 +25,7 @@ function destroyWindow() {
 function createWindow() {
     destroyWindow();
     mainWindow = new BrowserWindow({
-        title: pkg.preductname,
+        title: pkg.productName,
         width: 1280,
         height: 720,
         minWidth: 980,
@@ -34,9 +34,17 @@ function createWindow() {
         icon: `./src/assets/images/icon.${os.platform() === "win32" ? "ico" : "png"}`,
         frame: false,
         show: false,
+        // nodeIntegration reste nécessaire : tout le rendu utilise require()/ipcRenderer. Les défenses sont
+        // ailleurs : garde de navigation (utils/window-guard.js), CSP dans le HTML, aucun Node dans les
+        // iframes (skin 3D, YouTube), pas de <webview>, pas de navigation par glisser-déposer.
         webPreferences: {
             contextIsolation: false,
-            nodeIntegration: true
+            nodeIntegration: true,
+            nodeIntegrationInSubFrames: false,
+            nodeIntegrationInWorker: false,
+            webviewTag: false,
+            navigateOnDragDrop: false,
+            spellcheck: false
         },
     });
     Menu.setApplicationMenu(null);

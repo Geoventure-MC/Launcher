@@ -24,14 +24,28 @@ if (dev) {
     app.setPath('userData', appPath);
 }
 
-// Évite la fenêtre noire (cache/pilote GPU) : voir utils/startup-guard.js. Avant app.whenReady().
-if (!dev) require('./assets/js/utils/startup-guard.js').install(app);
-
-if (!app.requestSingleInstanceLock()) app.quit();
-else app.whenReady().then(() => {
-    if (dev) return MainWindow.createWindow()
-    UpdateWindow.createWindow()
-});
+// Verrou d'instance unique AVANT le garde-fou de démarrage : un second lancement ne doit ni compter
+// un « échec » (ce qui finissait par couper l'accélération GPU pour de bon) ni effacer le cache GPU
+// de l'instance déjà ouverte. Il remet simplement la fenêtre existante au premier plan.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+    app.quit();
+} else {
+    // Évite la fenêtre noire (cache/pilote GPU) : voir utils/startup-guard.js. Avant app.whenReady().
+    if (!dev) require('./assets/js/utils/startup-guard.js').install(app);
+    app.on('second-instance', () => {
+        const win = MainWindow.getWindow() || UpdateWindow.getWindow();
+        if (!win || win.isDestroyed()) return;
+        if (win.isMinimized()) win.restore();
+        if (!win.isVisible()) win.show();
+        win.focus();
+    });
+    require('./assets/js/utils/window-guard.js').install(app);
+    app.whenReady().then(() => {
+        if (dev) return MainWindow.createWindow()
+        UpdateWindow.createWindow()
+    });
+}
 
 ipcMain.on('update-window-close', () => UpdateWindow.destroyWindow())
 ipcMain.on('update-window-dev-tools', () => UpdateWindow.getWindow().webContents.openDevTools())

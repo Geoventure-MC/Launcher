@@ -229,7 +229,7 @@ class Profile extends BasePanel {
             // Sonde la Skin-API : un 404 signifie que le plugin n'est pas
             // installé/actif sur l'Azuriom → on masque la preview et l'upload.
             const azauth = getAzAuthUrl(this.config);
-            const probe = await fetch(`${azauth}api/skin-api/avatars/face/${account.name}`);
+            const probe = await fetch(`${azauth}api/skin-api/avatars/face/${encodeURIComponent(account.name)}`);
             if (probe.status === 404) {
                 this._showSkinApiMissing();
                 return;
@@ -257,7 +257,7 @@ class Profile extends BasePanel {
         const viewer = document.getElementById('profile-skin-viewer');
         if (!viewer || !this._skinAccount) return;
         const azauth = getAzAuthUrl(this.config);
-        viewer.src = `${azauth}skin3d/3d-api/skin-api/${this._skinAccount.name}?t=${Date.now()}`;
+        viewer.src = `${azauth}skin3d/3d-api/skin-api/${encodeURIComponent(this._skinAccount.name)}?t=${Date.now()}`;
     }
 
     _setSkinStatus(cls, msg) {
@@ -323,7 +323,7 @@ class Profile extends BasePanel {
             // Rafraîchit aussi la tête du header du profil.
             const headEl = document.getElementById('profile-player-head');
             if (headEl && this._skinAccount?.name) {
-                headEl.style.backgroundImage = `url(${azauth}api/skin-api/avatars/face/${this._skinAccount.name}?t=${Date.now()})`;
+                headEl.style.backgroundImage = `url("${azauth}api/skin-api/avatars/face/${encodeURIComponent(this._skinAccount.name)}?t=${Date.now()}")`;
             }
         } catch (err) {
             console.warn('[Profile] skin upload failed:', err);
@@ -628,7 +628,7 @@ class Profile extends BasePanel {
             }
             if (headEl && account.name) {
                 const azauth = getAzAuthUrl(this.config);
-                headEl.style.backgroundImage = `url(${azauth}api/skin-api/avatars/face/${account.name})`;
+                headEl.style.backgroundImage = `url("${azauth}api/skin-api/avatars/face/${encodeURIComponent(account.name)}")`;
             }
 
             // GeoCoins balance, if the account carries it (user_info.monnaie / money).

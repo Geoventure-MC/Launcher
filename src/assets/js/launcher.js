@@ -43,8 +43,14 @@ class Launcher {
         this.news = await config.GetNews();
         this.database = await new database().init();
         this.createPanels(Instances, Login, Home, Settings, Profile, Changelog, Screenshots);
-        this.getAccounts();
-        this.initDiscordRPC();
+        // Jamais d'écran de chargement infini : une erreur imprévue (Azuriom en panne, base locale
+        // illisible…) mène à l'écran de connexion au lieu de laisser le préchargement affiché.
+        this.getAccounts().catch((err) => {
+            console.error('[Account] chargement des comptes impossible :', err);
+            try { changePanel(this.hasSelectedInstance() ? 'login' : 'instances'); } catch { /* ignoré */ }
+            this.hidePreloader();
+        });
+        try { this.initDiscordRPC(); } catch (err) { console.warn('[RPC] désactivé :', err && err.message); }
     }
 
     initLog() {
@@ -72,8 +78,12 @@ class Launcher {
                         { label: this.config.rpc_button2, url: this.config.rpc_button2_url }
                     ]
                 };
-                rpc.setActivity(presence);
+                // Discord refuse toute l'activité si un bouton n'a pas de libellé ou d'URL http(s) valide.
+                presence.buttons = presence.buttons.filter(b => b.label && /^https?:\/\//i.test(String(b.url || '')));
+                if (!presence.buttons.length) delete presence.buttons;
+                Promise.resolve(rpc.setActivity(presence)).catch(err => console.warn('[RPC] activité refusée :', err && err.message));
             });
+            rpc.on('error', err => console.warn('[RPC]', err && err.message));
             rpc.login({ clientId: this.config.rpc_id }).catch(console.error);
         }
     }
@@ -141,8 +151,18 @@ class Launcher {
         } else {
             for (let account of accounts) {
                 account = account.value;
-                if (account.meta.type === 'AZauth') {
-                    const refresh = await AZAuth.verify(account);
+                if (account?.meta?.type === 'AZauth') {
+                    let refresh;
+                    try {
+                        refresh = await AZAuth.verify(account);
+                    } catch (err) {
+                        // Azuriom injoignable ou réponse non JSON (502 HTML) : on garde le compte en cache
+                        // (mode hors ligne) au lieu de rester bloqué sur l'écran de chargement.
+                        console.warn(`[Account] vérification impossible (${err && err.message ? err.message : err}) : compte en cache conservé`);
+                        addAccount(account);
+                        if (account.uuid === selectedAccount) accountSelect(account.uuid);
+                        continue;
+                    }
                     console.log(`Initializing Mojang account ${account.name}...`);
 
                     if (refresh.error) {
@@ -169,9 +189,13 @@ class Launcher {
                         },
                     };
 
-                    if (this.config.email_verified && !account.user_info.verified) {
-                        this.database.delete(account.uuid, 'accounts');
-                        if (account.uuid === selectedAccount) this.database.update({ uuid: "1234" }, 'accounts-selected');
+                    // E-mail non vérifié alors que le panel l'exige : le compte est retiré et N'EST PAS réécrit
+                    // (avant, la mise à jour juste après le recréait, et le test lisait l'ancien état).
+                    if (this.config.email_verified && !refresh.user_info?.verified) {
+                        await this.database.delete(account.uuid, 'accounts');
+                        if (account.uuid === selectedAccount) await this.database.update({ uuid: "1234" }, 'accounts-selected');
+                        console.warn(`[Account] ${account.uuid} : e-mail non vérifié, compte retiré`);
+                        continue;
                     }
 
                     this.database.update(refreshAccounts, 'accounts');
@@ -259,8 +283,8 @@ class Launcher {
         if (!accountRecord?.value) return;
         const account = accountRecord.value;
 
-        document.querySelector('.player-skin-title').innerHTML = `Skin de ${account.name}`;
-        document.querySelector('.skin-renderer-settings').src = `${azauth}skin3d/3d-api/skin-api/${account.name}`;
+        document.querySelector('.player-skin-title').textContent = `Skin de ${account.name}`;
+        document.querySelector('.skin-renderer-settings').src = `${azauth}skin3d/3d-api/skin-api/${encodeURIComponent(account.name)}`;
     }
 
     async initOthers() {

@@ -19,6 +19,9 @@ import { withInstance } from '../utils/instance.js';
 import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
 import { isOfflineMode, offlineCacheDate, getAzAuthUrl } from '../utils/config.js';
 import * as desktopNotify from '../utils/desktopNotify.js';
+import { openExternal } from '../utils/external.js';
+import { sanitizeHtml } from '../utils/sanitize.js';
+import { findModFile, modTargetName, communityModPaths } from '../utils/mods.js';
 const { Launch, Status } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const path = require('path');
@@ -58,16 +61,7 @@ function safeHttpUrl(url) {
     }
 }
 
-// Strip dangerous constructs from RSS/panel-provided HTML content.
-function sanitizeHtml(html) {
-    return String(html)
-        .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
-        .replace(/<\s*script[^>]*>/gi, '')
-        .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-        .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-        .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
-        .replace(/javascript:/gi, '');
-}
+// Texte riche du panel/RSS : assainisseur à liste blanche (utils/sanitize.js).
 
 class Home {
     static id = "home";
@@ -159,7 +153,7 @@ class Home {
 
         if (bg) {
             const safeImg = item.image ? safeHttpUrl(item.image) : null;
-            bg.style.backgroundImage = safeImg ? `url('${safeImg}')` : '';
+            bg.style.backgroundImage = safeImg ? `url("${safeImg.replace(/["\\\n]/g, encodeURIComponent)}")` : '';
         }
         if (title) title.textContent = item.title || '';
         if (desc) {
@@ -216,9 +210,14 @@ class Home {
 
     async initLaunch() {
         document.querySelector('.play-btn').addEventListener('click', async () => {
+            // Un seul lancement à la fois : un second clic (bouton réaffiché après une erreur de
+            // téléchargement pendant que l'installation continuait) lançait deux fois dans le même dossier.
+            if (this._launching) return;
+            this._launching = true;
             try {
                 await this._doLaunch();
             } catch (err) {
+                this._launching = false;
                 this._pillProgressEnd();
                 console.error('Launch failed:', err);
                 this.handleLaunchError(err);
@@ -271,6 +270,7 @@ class Home {
     showMaintenanceBanner() {
         const container = document.getElementById('notifications-banner');
         if (!container) return;
+        if (container.querySelector('[data-maintenance-banner]')) { container.style.display = 'block'; return; }
 
         const msg = this.config.maintenance_message
             ? sanitizeHtml(String(this.config.maintenance_message))
@@ -278,6 +278,7 @@ class Home {
 
         const el = document.createElement('div');
         el.className = 'notification-item notification-maintenance';
+        el.dataset.maintenanceBanner = '1';
         el.innerHTML = `
             <span class="notif-icon">🔧</span>
             <span class="notif-message"><strong>${escapeHtml(t('maintenance_active') || 'Maintenance en cours')}</strong> — ${msg}</span>
@@ -296,13 +297,14 @@ class Home {
                 info.innerHTML = `<span class="red">${escapeHtml(t('maintenance_blocked') || 'Lancement bloqué : maintenance en cours.')}</span>`;
             }
             this.showMaintenanceBanner();
+            this._launching = false;
             return;
         }
 
         const cheats = await this.checkForCheatMods();
         if (cheats.length > 0) {
             const proceed = await this.showCheatModal(cheats);
-            if (!proceed) return;
+            if (!proceed) { this._launching = false; return; }
         }
 
         await this.verifyModsBeforeLaunch();
@@ -316,6 +318,9 @@ class Home {
         info.style.display = "block";
 
         const launcherSettings = (await this.database.get('1234', 'launcher')).value;
+        // L'objet Launch est partagé : sans ce nettoyage, chaque lancement ajoutait une copie de tous les
+        // écouteurs (messages, journaux et compteurs en double).
+        launch.removeAllListeners();
         this.setupLaunchListeners(launch, info, progressBar, playBtn, launcherSettings);
 
         // Awaited so a failed version-manifest fetch (GetInfoVersion) is caught
@@ -357,11 +362,15 @@ class Home {
                 "launcher_config",
                 // Réglages du joueur et configs des mods : jamais écrasés ni supprimés par une mise à jour.
                 ...userKeepList(this.gameDir()),
+                // Mods communauté installés par le joueur : hors modpack, ils étaient supprimés au lancement.
+                ...communityModPaths(this.gameDir()),
             ],
             intelEnabledMac: process.platform === 'darwin' && process.arch === 'arm64',
             JVM_ARGS: jvmArgs,
             GAME_ARGS: [],
             java: this.config.java,
+            // Résolution choisie dans les réglages (« <auto> » = taille par défaut du jeu).
+            screen: screen ? { width: Number(screen.width) || null, height: Number(screen.height) || null, fullscreen: false } : { width: null, height: null, fullscreen: false },
             memory: {
                 min: `${ram.ramMin * 1024}M`,
                 max: `${ram.ramMax * 1024}M`
@@ -438,6 +447,7 @@ class Home {
                 info.style.display = 'block';
                 info.innerHTML = `<span class="red">${String(msg).replace(/[<>&]/g, '').slice(0, 220)}</span>`;
                 if (playBtn) { playBtn.style.display = 'block'; playBtn.disabled = false; }
+                this._launching = false;
             }
         });
     }
@@ -599,6 +609,7 @@ class Home {
     }
 
     handleLaunchClose(code, info, progressBar, playBtn, launcherSettings) {
+        this._launching = false;
         this._installStateRefreshed = false;
         this._pillProgressEnd();
         if (launcherSettings.launcher.close === 'close-launcher') ipcRenderer.send("main-window-show");
@@ -800,7 +811,8 @@ class Home {
                 }
             }
 
-            container.innerHTML = '';
+            // Les annonces remplacent les précédentes, jamais le bandeau de maintenance (affiché en tête).
+            for (const child of Array.from(container.children)) if (!child.dataset.maintenanceBanner) child.remove();
             for (const notif of notifications) {
                 const el = document.createElement('div');
                 el.className = `notification-item notification-${notif.type || 'info'}`;
@@ -957,7 +969,7 @@ class Home {
         const playButton = videoThumbnail.querySelector('.ytb-play-btn');
         const btn = videoContainer.querySelector('.ytb-btn');
 
-        btn.addEventListener('click', () => shell.openExternal(`https://youtube.com/watch?v=${youtubeVideoId}`));
+        btn.addEventListener('click', () => openExternal(`https://youtube.com/watch?v=${youtubeVideoId}`));
 
         if (thumbnailImg && playButton) {
             thumbnailImg.src = youtubeThumbnailUrl;
@@ -1055,7 +1067,7 @@ class Home {
                     if (response.ok) {
                         const data = await response.json();
                         if (typeof data?.url === 'string' && /^https?:\/\//i.test(data.url)) {
-                            shell.openExternal(data.url);
+                            openExternal(data.url);
                             return;
                         }
                     }
@@ -1065,7 +1077,7 @@ class Home {
             console.warn('Lien de connexion indisponible, ouverture simple :', error);
         }
 
-        shell.openExternal(url);
+        openExternal(url);
     }
 
     async getDate(e) {
@@ -1098,16 +1110,22 @@ class Home {
             return;
         }
 
+        // Anciens fichiers « .jar.disable » laissés par les versions précédentes : remis au bon suffixe.
+        for (const f of fs.readdirSync(modsDir)) {
+            if (!f.endsWith('.jar.disable')) continue;
+            const fixed = f.slice(0, -'.disable'.length) + '-disable';
+            try { if (!fs.existsSync(path.join(modsDir, fixed))) fs.renameSync(path.join(modsDir, f), path.join(modsDir, fixed)); } catch { /* ignoré */ }
+        }
+        const files = fs.readdirSync(modsDir);
         for (const mod in modsConfig) {
-            const modFiles = fs.readdirSync(modsDir).filter(file => file.startsWith(mod) && (file.endsWith('.jar') || file.endsWith('.jar-disable')));
-            if (modFiles.length > 0) {
-                const modFile = modFiles[0];
-                const modFilePath = path.join(modsDir, modFile);
-                const newModFilePath = modsConfig[mod] ? modFilePath.replace('.jar-disable', '.jar') : modFilePath.endsWith('.jar-disable') ? modFilePath : `${modFilePath}.disable`;
-                if (modFilePath !== newModFilePath) {
-                    fs.renameSync(modFilePath, newModFilePath);
-                }
-            }
+            // Correspondance exacte et suffixe « -disable » (le seul que la bibliothèque connaît) :
+            // l'ancien « .jar.disable » était supprimé par la vérification puis retéléchargé ACTIF.
+            const modFile = findModFile(files, mod);
+            if (!modFile) continue;
+            const target = modTargetName(modFile, !!modsConfig[mod]);
+            if (target === modFile) continue;
+            try { fs.renameSync(path.join(modsDir, modFile), path.join(modsDir, target)); }
+            catch (e) { console.warn('[mods] renommage impossible', modFile, e && e.message); }
         }
     }
 

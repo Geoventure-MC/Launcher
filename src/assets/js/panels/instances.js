@@ -31,6 +31,11 @@ class Instances {
 
     async init(config) {
         this.config = config;
+        const headerLogo = document.querySelector('.instances-logo .logo-img');
+        if (headerLogo) {
+            headerLogo.addEventListener('error', () => { headerLogo.style.display = 'none'; });
+            if (headerLogo.complete && headerLogo.naturalWidth === 0) headerLogo.style.display = 'none';
+        }
         this.database = await new database().init();
         this.renderGrid();
         this.initFooter();
@@ -75,7 +80,7 @@ class Instances {
                 <div class="instance-card-bg" style="background-image: url('../src/assets/images/instances/${server.id}.jpg');"></div>
                 <div class="instance-card-overlay"></div>
                 <div class="instance-card-content">
-                    <img class="instance-logo" src="../src/assets/images/instances/${server.id}_logo.png" alt="${this._esc(server.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                    <img class="instance-logo" src="../src/assets/images/instances/${server.id}_logo.png" alt="${this._esc(server.name)}">
                     <div class="instance-icon" style="display:none;">${this._esc(server.name.charAt(0))}</div>
                     <div class="instance-name">${this._esc(server.name)}</div>
                     <div class="instance-desc">${this._esc(theme.desc || server.description || '')}</div>
@@ -89,6 +94,12 @@ class Instances {
                     </button>
                 </div>
             `;
+
+            // Repli sur l'initiale si le logo manque (écouteur JS : la CSP interdit les onerror="…").
+            const logo = card.querySelector('.instance-logo');
+            const showInitial = () => { logo.style.display = 'none'; if (logo.nextElementSibling) logo.nextElementSibling.style.display = 'flex'; };
+            logo.addEventListener('error', showInitial);
+            if (logo.complete && logo.naturalWidth === 0 && logo.getAttribute('src')) showInitial();
 
             const btn = card.querySelector('.instance-action-btn');
             btn.addEventListener('click', (e) => {

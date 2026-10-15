@@ -8,6 +8,7 @@
 'use strict';
 const { ipcRenderer, shell } = require('electron');
 import { config, t } from './utils.js';
+import { openExternal } from './utils/external.js';
 const os = require('os');
 const nodeFetch = require('node-fetch');
 
@@ -134,7 +135,7 @@ class Splash {
         const dl = document.querySelector(".download-update:not(.skip-update)");
         const skip = document.querySelector(".skip-update");
         if (dl) dl.addEventListener("click", () => {
-            shell.openExternal(url);
+            openExternal(url);
             return this.shutdown("Téléchargement en cours...");
         });
         if (skip) skip.addEventListener("click", () => this.maintenanceCheck());

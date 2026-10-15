@@ -16,6 +16,13 @@ import { getAzAuthUrl } from '../utils/config.js';
 import { toGb, recommendProfile, buildProfile, sanitizeJvmArgs, PROFILE_IDS } from '../utils/perf.js';
 import { collectDiagnostic } from '../utils/diagnostic.js';
 import { isUserPath } from '../utils/userdata.js';
+import { openExternal } from '../utils/external.js';
+import { safeModFileName, findModFile, modTargetName, recordCommunityMod } from '../utils/mods.js';
+
+// URL http(s) valide ou null (icônes et liens venus du panel).
+function safeIcon(u) {
+    try { const x = new URL(String(u)); return (x.protocol === 'https:' || x.protocol === 'http:') ? x.href : null; } catch { return null; }
+}
 const dataDirectory = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME);
 
 const os = require('os');
@@ -187,8 +194,8 @@ class Settings {
         const pseudo = accountRecord.value.name;
         const azauth = this.getAzAuthUrl();
         const timestamp = new Date().getTime();
-        const skin_url = `${azauth}api/skin-api/avatars/face/${pseudo}/?t=${timestamp}`;
-        document.querySelector(".player-head").style.backgroundImage = `url(${skin_url})`;
+        const skin_url = `${azauth}api/skin-api/avatars/face/${encodeURIComponent(pseudo)}/?t=${timestamp}`;
+        document.querySelector(".player-head").style.backgroundImage = `url("${skin_url}")`;
     }
 
     async updateAccountImage() {
@@ -204,7 +211,7 @@ class Settings {
         if (accountDiv) {
             const accountImage = accountDiv.querySelector('.account-image');
             if (accountImage) {
-                accountImage.src = `${azauth}api/skin-api/avatars/face/${account.name}/?t=${timestamp}`;
+                accountImage.src = `${azauth}api/skin-api/avatars/face/${encodeURIComponent(account.name)}/?t=${timestamp}`;
             } else {
                 console.error('Image not found in the selected account div.');
             }
@@ -229,7 +236,9 @@ class Settings {
     updateRole(account) {
         if (this.config.role && account.user_info.role) {
             const blockRole = document.createElement("div");
-            blockRole.innerHTML = `<div>${t('grade')}: ${account.user_info.role.name}</div>`;
+            const line = document.createElement('div');
+            line.textContent = `${t('grade')}: ${account.user_info.role.name}`;
+            blockRole.appendChild(line);
             document.querySelector('.player-role').appendChild(blockRole);
         } else {
             document.querySelector(".player-role").style.display = "none";
@@ -239,7 +248,9 @@ class Settings {
     updateMoney(account) {
         if (this.config.money) {
             const blockMonnaie = document.createElement("div");
-            blockMonnaie.innerHTML = `<div>${account.user_info.monnaie} pts</div>`;
+            const line = document.createElement('div');
+            line.textContent = `${account.user_info.monnaie} pts`;
+            blockMonnaie.appendChild(line);
             document.querySelector('.player-monnaie').appendChild(blockMonnaie);
         } else {
             document.querySelector(".player-monnaie").style.display = "none";
@@ -487,56 +498,68 @@ class Settings {
             return;
         }
 
+        const esc = (v) => this._escapeHtml(v == null ? '' : String(v));
+        // Tout ce qui vient de /utils/mods est du TEXTE : nom, description, clé. L'icône n'est acceptée
+        // qu'en http(s). (Une description piégée exécutait du code avec Node chez chaque joueur.)
         data.optionalMods.forEach(mod => {
+            if (typeof mod !== 'string' || !mod) return;
             const modElement = document.createElement('div');
             const modInfo = data.mods[mod];
+            const checked = modsConfig[mod] ? 'checked' : '';
             if (!modInfo) {
                 console.error(`Les informations pour le mod "${mod}" sont manquantes dans "mods".`);
                 modElement.innerHTML = `
                 <div class="mods-container">
-                  <h2>${t('mod_info_missing_admin').replace('${mod}', mod)}<h2>
+                  <h2>${esc(t('mod_info_missing_admin').replace('${mod}', mod))}</h2>
                    <div class="switch">
                       <label class="switch-label">
-                        <input type="checkbox" id="${mod}" name="mod" value="${mod}" ${modsConfig[mod] ? 'checked' : ''}>
+                        <input type="checkbox" name="mod" ${checked}>
                         <span class="slider round"></span>
                       </label>
                   </div>
                 </div>
                 <hr>`;
+                const input = modElement.querySelector('input');
+                input.id = mod; input.value = mod;
+                modElement.querySelector('input').addEventListener('change', (e) => {
+                    this.toggleMod(mod, e.target.checked, modsConfig, modsDir, modsConfigFile);
+                });
                 modsListElement.appendChild(modElement); // sans cet ajout, le message d'erreur admin n'apparaissait jamais
                 return;
             }
 
-            const modName = modInfo.name;
+            const modName = modInfo.name || mod;
             const modDescription = modInfo.description || t('no_mod_description');
-            const modLink = modInfo.icon;
+            const modLink = safeIcon(modInfo.icon);
             const modRecommanded = modInfo.recommanded;
 
             modElement.innerHTML = `
                 <div class="mods-container">
-                  ${modLink ? `<img src="${modLink}" class="mods-icon" alt="${modName} logo">` : ''}
+                  ${modLink ? `<img src="${esc(modLink)}" class="mods-icon" alt="${esc(modName)} logo">` : ''}
                   <div class="mods-container-text">
-                    <div class="mods-container-name">                    
-                        <h2>${modName}</h2>
-                        <div class="mods-recommanded" style="display: none;">${t('recommended')}</div>
+                    <div class="mods-container-name">
+                        <h2>${esc(modName)}</h2>
+                        <div class="mods-recommanded" style="display: none;">${esc(t('recommended'))}</div>
                     </div>
-                    <div class="mod-description">${modDescription}</div>
+                    <div class="mod-description">${esc(modDescription)}</div>
                   </div>
                   <div class="switch">
                     <label class="switch-label">
-                      <input type="checkbox" id="${mod}" name="mod" value="${mod}" ${modsConfig[mod] ? 'checked' : ''}>
+                      <input type="checkbox" name="mod" ${checked}>
                       <span class="slider round"></span>
                     </label>
                   </div>
                 </div>
                 <hr>
             `;
+            const input = modElement.querySelector('input');
+            input.id = mod; input.value = mod;
 
             if (modRecommanded) {
                 modElement.querySelector('.mods-recommanded').style.display = 'block';
             }
 
-            modElement.querySelector('input').addEventListener('change', (e) => {
+            input.addEventListener('change', (e) => {
                 this.toggleMod(mod, e.target.checked, modsConfig, modsDir, modsConfigFile);
             });
 
@@ -545,18 +568,14 @@ class Settings {
     }
 
     async toggleMod(mod, enabled, modsConfig, modsDir, modsConfigFile) {
-        const modFiles = fs.readdirSync(modsDir).filter(file => file.startsWith(mod) && (file.endsWith('.jar') || file.endsWith('.jar-disable')));
-
-        if (modFiles.length > 0) {
-            const modFile = modFiles[0];
-            const modFilePath = path.join(modsDir, modFile);
-            const newModFilePath = enabled ? modFilePath.replace('.jar-disable', '.jar') : modFilePath.replace('.jar', '.jar-disable');
-
-            fs.renameSync(modFilePath, newModFilePath);
-
-            modsConfig[mod] = enabled;
-            fs.writeFileSync(modsConfigFile, JSON.stringify(modsConfig, null, 2));
+        const modFile = findModFile(fs.readdirSync(modsDir), mod);
+        if (modFile) {
+            const target = modTargetName(modFile, enabled);
+            if (target !== modFile) fs.renameSync(path.join(modsDir, modFile), path.join(modsDir, target));
         }
+        // La préférence est gardée même si le mod n'est pas encore téléchargé : elle s'appliquera au lancement.
+        modsConfig[mod] = enabled;
+        fs.writeFileSync(modsConfigFile, JSON.stringify(modsConfig, null, 2));
     }
 
     async selectFile() {
@@ -633,7 +652,7 @@ class Settings {
 
         const skin = document.querySelector('.skin-renderer-settings');
         if (!skin) return;
-        const url = `${azauth}skin3d/3d-api/skin-api/${account.name}`;
+        const url = `${azauth}skin3d/3d-api/skin-api/${encodeURIComponent(account.name)}`;
         skin.src = url;
     }
 
@@ -1264,10 +1283,16 @@ class Settings {
             }
 
             for (const mod of visible) {
-                const modFileName = mod.filename || path.basename(mod.url || '');
+                // Nom de fichier venu du panel : jamais un chemin (anti path traversal), sinon le mod
+                // n'est pas installable. URL et icône : http(s) seulement.
+                const modUrl = safeIcon(mod.url);
+                let urlName = '';
+                try { urlName = modUrl ? decodeURIComponent(new URL(modUrl).pathname.split('/').pop() || '') : ''; } catch { urlName = ''; }
+                const modFileName = safeModFileName(mod.filename || urlName);
                 const modFilePath = modFileName ? path.join(modsDir, modFileName) : '';
                 const isInstalled = !!modFilePath && fs.existsSync(modFilePath);
-                const canInstall = !!(mod.url && modFileName);
+                const canInstall = !!(modUrl && modFileName);
+                const iconUrl = safeIcon(mod.icon);
 
                 const el = document.createElement('div');
                 el.classList.add('mods-container');
@@ -1278,7 +1303,7 @@ class Settings {
                 if (mod.version) metaParts.push(`<span class="community-meta-version">v${this._escapeHtml(mod.version)}</span>`);
 
                 el.innerHTML = `
-                    ${mod.icon ? `<img src="${this._escapeHtml(mod.icon)}" class="mods-icon" alt="${safeName}" onerror="this.style.display='none'">` : ''}
+                    ${iconUrl ? `<img src="${this._escapeHtml(iconUrl)}" class="mods-icon" alt="${safeName}">` : ''}
                     <div class="mods-container-text">
                         <div class="mods-container-name">
                             <h2>${safeName}</h2>
@@ -1288,15 +1313,18 @@ class Settings {
                         <div class="mod-description">${this._escapeHtml(mod.description || t('no_mod_description'))}</div>
                     </div>
                     <div class="community-actions">
-                        ${mod.url ? `<button class="community-link-btn" type="button">${t('community_open_link')}</button>` : ''}
+                        ${modUrl ? `<button class="community-link-btn" type="button">${t('community_open_link')}</button>` : ''}
                         ${canInstall ? `<button class="community-mod-btn ${isInstalled ? 'uninstall' : 'install'}">${isInstalled ? t('uninstall_mod') : t('install_mod')}</button>` : ''}
                     </div>
                 `;
 
+                const iconEl = el.querySelector('.mods-icon');
+                if (iconEl) iconEl.addEventListener('error', () => { iconEl.style.display = 'none'; });
+
                 const linkBtn = el.querySelector('.community-link-btn');
                 if (linkBtn) {
                     linkBtn.addEventListener('click', () => {
-                        if (mod.url) shell.openExternal(mod.url);
+                        if (modUrl) openExternal(modUrl);
                     });
                 }
 
@@ -1309,10 +1337,13 @@ class Settings {
                             try {
                                 if (!fs.existsSync(modsDir)) fs.mkdirSync(modsDir, { recursive: true });
                                 const nodeFetch = require('node-fetch');
-                                const fileRes = await nodeFetch(mod.url);
+                                const fileRes = await nodeFetch(modUrl);
                                 if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`);
                                 const buffer = await fileRes.buffer();
+                                // Le contenu doit être une archive (jar = zip) : une page d'erreur HTML n'est jamais écrite.
+                                if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b) throw new Error('fichier reçu invalide (pas un .jar)');
                                 fs.writeFileSync(modFilePath, buffer);
+                                recordCommunityMod(this.gameDir(), modFileName, true);
                                 btn.classList.remove('install');
                                 btn.classList.add('uninstall');
                                 btn.textContent = t('uninstall_mod');
@@ -1324,6 +1355,7 @@ class Settings {
                         } else {
                             try {
                                 if (fs.existsSync(modFilePath)) fs.unlinkSync(modFilePath);
+                                recordCommunityMod(this.gameDir(), modFileName, false);
                                 btn.classList.remove('uninstall');
                                 btn.classList.add('install');
                                 btn.textContent = t('install_mod');

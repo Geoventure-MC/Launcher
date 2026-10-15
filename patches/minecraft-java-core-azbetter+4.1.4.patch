@@ -1,8 +1,47 @@
 diff --git a/node_modules/minecraft-java-core-azbetter/build/Launch.js b/node_modules/minecraft-java-core-azbetter/build/Launch.js
-index f2f6ce0..765a381 100644
+index f2f6ce0..40d2441 100644
 --- a/node_modules/minecraft-java-core-azbetter/build/Launch.js
 +++ b/node_modules/minecraft-java-core-azbetter/build/Launch.js
-@@ -174,8 +174,15 @@ class Launch extends events_1.EventEmitter {
+@@ -80,7 +80,11 @@ class Launch extends events_1.EventEmitter {
+             this.options.downloadFileMultiple = 30;
+         if (typeof this.options.loader.path !== 'string')
+             this.options.loader.path = `./loader/${this.options.loader.type}`;
+-        this.start();
++        // start() n'était pas attendu : une exception (/data en 502 HTML, réseau coupé…) devenait une
++        // promesse rejetée non gérée, le bouton Jouer restait caché et rien n'était affiché.
++        this.start().catch((e) => {
++            this.emit('error', { error: e && e.message ? e.message : String(e) });
++        });
+     }
+     async start() {
+         let data = await this.DownloadGame();
+@@ -121,7 +125,7 @@ class Launch extends events_1.EventEmitter {
+         let InfoVersion = await new Minecraft_Json_js_1.default(this.options).GetInfoVersion();
+         let loaderJson = null;
+         if ('error' in InfoVersion) {
+-            return this.emit('error', InfoVersion);
++            return InfoVersion;
+         }
+         let { json, version } = InfoVersion;
+         let libraries = new Minecraft_Libraries_js_1.default(this.options);
+@@ -152,10 +156,13 @@ class Launch extends events_1.EventEmitter {
+             downloader.on("estimated", (time) => {
+                 this.emit("estimated", time);
+             });
+-            downloader.on("error", (e) => {
+-                this.emit("error", e);
+-            });
++            // Les échecs par fichier sont regroupés : un seul message, et le lancement S'ARRÊTE (avant, chaque
++            // échec réaffichait le bouton Jouer alors que l'installation continuait avec des fichiers manquants).
+             await downloader.downloadFileMultiple(filesList, totsize, this.options.downloadFileMultiple, this.options.timeout);
++            if (downloader.failed && downloader.failed.length) {
++                const first = downloader.failed[0];
++                return { error: `${downloader.failed.length} fichier(s) n'ont pas pu être téléchargés (ex. ${first.path.split('/').slice(-2).join('/')} : ${first.reason}). Vérifie ta connexion puis relance.` };
++            }
+         }
+         if (this.options.loader.enable === true) {
+             let loaderInstall = new Minecraft_Loader_js_1.default(this.options);
+@@ -174,8 +181,15 @@ class Launch extends events_1.EventEmitter {
              let jsonLoader = await loaderInstall.GetLoader(version, this.options.java.path ? this.options.java.path : gameJava.path)
                  .then((data) => data)
                  .catch((err) => err);
@@ -101,3 +140,270 @@ index f995eca..7fbb944 100644
                      if (code !== 0) {
                          this.emit('error', `Le patcher Forge s'est terminé avec le code ${code}`);
                      }
+diff --git a/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Bundle.js b/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Bundle.js
+index b8f5c63..3212f02 100644
+--- a/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Bundle.js
++++ b/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Bundle.js
+@@ -33,6 +33,14 @@ class MinecraftBundle {
+                 continue;
+             // Convert path to absolute, consistent format
+             file.path = path_1.default.resolve(this.options.path, file.path).replace(/\\/g, '/');
++            // Anti path traversal : un chemin du manifeste (/data falsifié, « ../../… ») ne doit JAMAIS
++            // écrire hors du dossier de jeu.
++            const root = path_1.default.resolve(this.options.path).replace(/\\/g, '/').replace(/\/$/, '') + '/';
++            if (!file.path.startsWith(root)) {
++                console.warn(`[bundle] chemin hors du dossier de jeu ignoré : ${String(file.path).slice(0, 200)}`);
++                file.path = null;
++                continue;
++            }
+             file.folder = file.path.split('/').slice(0, -1).join('/');
+             // Vérifie si une version désactivée de ce fichier existe
+             const disabledPath = `${file.path}-disable`;
+diff --git a/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Libraries.js b/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Libraries.js
+index 2344725..5706d77 100644
+--- a/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Libraries.js
++++ b/node_modules/minecraft-java-core-azbetter/build/Minecraft/Minecraft-Libraries.js
+@@ -112,10 +112,21 @@ class Libraries {
+         if (!url)
+             return [];
+         const response = await fetch(url);
+-        const data = await response.json();
++        // Un /data en erreur (502 HTML de nginx…) donnait « Unexpected token '<' » sans contexte.
++        if (!response.ok)
++            throw new Error(`Liste des fichiers du modpack indisponible (HTTP ${response.status})`);
++        let data;
++        try {
++            data = await response.json();
++        }
++        catch (e) {
++            throw new Error('Liste des fichiers du modpack illisible (réponse non JSON)');
++        }
++        if (!Array.isArray(data))
++            throw new Error('Liste des fichiers du modpack invalide');
+         const assets = [];
+         for (const asset of data) {
+-            if (!asset.path)
++            if (!asset || typeof asset.path !== 'string' || !asset.path)
+                 continue;
+             // The 'type' is deduced from the first part of the path
+             const fileType = asset.path.split('/')[0];
+diff --git a/node_modules/minecraft-java-core-azbetter/build/utils/Downloader.js b/node_modules/minecraft-java-core-azbetter/build/utils/Downloader.js
+index 1487c7d..65682f2 100644
+--- a/node_modules/minecraft-java-core-azbetter/build/utils/Downloader.js
++++ b/node_modules/minecraft-java-core-azbetter/build/utils/Downloader.js
+@@ -8,6 +8,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+ const fs_1 = __importDefault(require("fs"));
++const crypto_1 = __importDefault(require("crypto"));
+ const events_1 = require("events");
+ const Index_js_1 = require("./Index.js");
+ /**
+@@ -27,28 +28,45 @@ class Downloader extends events_1.EventEmitter {
+         if (!fs_1.default.existsSync(dirPath)) {
+             fs_1.default.mkdirSync(dirPath, { recursive: true });
+         }
+-        const writer = fs_1.default.createWriteStream(`${dirPath}/${fileName}`);
++        const target = `${dirPath}/${fileName}`;
+         const response = await fetch(url);
++        // Une page d'erreur (404/502 HTML) n'est jamais enregistrée comme fichier.
++        if (!response.ok || !response.body)
++            throw new Error(`Téléchargement impossible (HTTP ${response.status}) : ${fileName}`);
+         const contentLength = response.headers.get('content-length');
+         const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
+         let downloaded = 0;
++        const writer = fs_1.default.createWriteStream(target);
+         return new Promise((resolve, reject) => {
+             const body = (0, Index_js_1.fromAnyReadable)(response.body);
++            let idle;
++            const fail = (err) => {
++                clearTimeout(idle);
++                writer.destroy();
++                try { fs_1.default.rmSync(target, { force: true }); } catch (_) { }
++                if (this.listenerCount('error')) this.emit('error', err);
++                reject(err);
++            };
++            const arm = () => {
++                clearTimeout(idle);
++                idle = setTimeout(() => {
++                    try { body.destroy(); } catch (_) { }
++                    fail(new Error(`Téléchargement bloqué (aucune donnée depuis ${Downloader.IDLE_MS / 1000} s) : ${fileName}`));
++                }, Downloader.IDLE_MS);
++            };
++            arm();
+             body.on('data', (chunk) => {
++                arm();
+                 downloaded += chunk.length;
+                 // Emit progress with the current number of bytes vs. total size
+                 this.emit('progress', downloaded, totalSize);
+                 writer.write(chunk);
+             });
+             body.on('end', () => {
+-                writer.end();
+-                resolve();
+-            });
+-            body.on('error', (err) => {
+-                writer.destroy();
+-                this.emit('error', err);
+-                reject(err);
++                clearTimeout(idle);
++                writer.end(() => resolve());
+             });
++            body.on('error', fail);
+         });
+     }
+     /**
+@@ -56,6 +74,11 @@ class Downloader extends events_1.EventEmitter {
+      * Emits "progress" events with cumulative bytes downloaded vs. total size,
+      * as well as "speed" and "estimated" events for speed and ETA calculations.
+      *
++     * Chaque fichier : statut HTTP vérifié, délai d'inactivité sur TOUT le corps (pas seulement les
++     * en-têtes), empreinte sha1 contrôlée quand le manifeste la donne. Un fichier en échec est supprimé
++     * et noté dans `this.failed` ({ path, url, reason }) ; l'événement 'error' n'est émis que si
++     * quelqu'un l'écoute (sinon il levait ERR_UNHANDLED_ERROR).
++     *
+      * @param files - An array of DownloadOptions describing each file
+      * @param size - The total size (in bytes) of all files to be downloaded
+      * @param limit - The maximum number of simultaneous downloads
+@@ -64,6 +87,7 @@ class Downloader extends events_1.EventEmitter {
+     async downloadFileMultiple(files, size, limit = 1, timeout = 10000) {
+         if (limit > files.length)
+             limit = files.length;
++        this.failed = [];
+         let completed = 0; // Number of downloads completed
+         let downloaded = 0; // Cumulative bytes downloaded
+         let queued = 0; // Index of the next file to download
+@@ -83,59 +107,83 @@ class Downloader extends events_1.EventEmitter {
+             start = Date.now();
+             before = downloaded;
+         }, 500);
+-        const downloadNext = async () => {
+-            if (queued >= files.length)
+-                return;
+-            const file = files[queued++];
+-            if (!fs_1.default.existsSync(file.folder)) {
+-                fs_1.default.mkdirSync(file.folder, { recursive: true, mode: 0o777 });
+-            }
+-            const writer = fs_1.default.createWriteStream(file.path, { flags: 'w', mode: 0o777 });
++        const idleMs = Math.max(timeout, Downloader.IDLE_MS);
++        const downloadOne = (file) => new Promise((resolve) => {
++            let settled = false;
++            let writer = null;
++            let idle;
+             const controller = new AbortController();
+-            const timeoutId = setTimeout(() => controller.abort(), timeout);
+-            try {
+-                const response = await fetch(file.url, { signal: controller.signal });
+-                clearTimeout(timeoutId);
++            const done = (reason) => {
++                if (settled)
++                    return;
++                settled = true;
++                clearTimeout(idle);
++                if (reason) {
++                    try { controller.abort(); } catch (_) { }
++                    if (writer) writer.destroy();
++                    try { fs_1.default.rmSync(file.path, { force: true }); } catch (_) { }
++                    this.failed.push({ path: String(file.path), url: file.url, reason });
++                    if (this.listenerCount('error'))
++                        this.emit('error', { error: `${reason} : ${file.path}` });
++                }
++                resolve();
++            };
++            const arm = (ms) => {
++                clearTimeout(idle);
++                idle = setTimeout(() => done(`aucune donnée depuis ${Math.round(ms / 1000)} s`), ms);
++            };
++            arm(timeout);
++            fetch(file.url, { signal: controller.signal }).then((response) => {
++                if (settled)
++                    return;
++                if (!response.ok || !response.body)
++                    return done(`HTTP ${response.status}`);
++                if (!fs_1.default.existsSync(file.folder)) {
++                    fs_1.default.mkdirSync(file.folder, { recursive: true, mode: 0o777 });
++                }
++                writer = fs_1.default.createWriteStream(file.path, { flags: 'w', mode: 0o777 });
++                writer.on('error', (err) => done(`écriture impossible (${err && err.message ? err.message : err})`));
++                const hash = file.sha1 ? crypto_1.default.createHash('sha1') : null;
+                 const stream = (0, Index_js_1.fromAnyReadable)(response.body);
++                arm(idleMs);
+                 stream.on('data', (chunk) => {
++                    if (settled)
++                        return;
++                    arm(idleMs);
+                     downloaded += chunk.length;
++                    if (hash)
++                        hash.update(chunk);
+                     this.emit('progress', downloaded, size, file.type);
+                     writer.write(chunk);
+                 });
+                 stream.on('end', () => {
+-                    writer.end();
+-                    completed++;
+-                    downloadNext();
+-                });
+-                stream.on('error', (err) => {
+-                    writer.destroy();
+-                    this.emit('error', err);
+-                    completed++;
+-                    downloadNext();
++                    if (settled)
++                        return;
++                    clearTimeout(idle);
++                    writer.end(() => {
++                        if (hash) {
++                            const got = hash.digest('hex');
++                            if (got !== String(file.sha1).toLowerCase())
++                                return done('empreinte sha1 différente du manifeste');
++                        }
++                        done(null);
++                    });
+                 });
+-            }
+-            catch (e) {
+-                clearTimeout(timeoutId);
+-                writer.destroy();
+-                this.emit('error', e);
++                stream.on('error', (err) => done(err && err.message ? err.message : String(err)));
++            }).catch((e) => done(e && e.name === 'AbortError' ? 'délai dépassé' : (e && e.message ? e.message : String(e))));
++        });
++        const worker = async () => {
++            while (queued < files.length) {
++                const file = files[queued++];
++                await downloadOne(file);
+                 completed++;
+-                downloadNext();
+             }
+         };
+-        // Start "limit" concurrent downloads
+-        for (let i = 0; i < limit; i++) {
+-            downloadNext();
+-        }
+-        // Wait until all downloads complete
+-        return new Promise((resolve) => {
+-            const interval = setInterval(() => {
+-                if (completed === files.length) {
+-                    clearInterval(estimated);
+-                    clearInterval(interval);
+-                    resolve();
+-                }
+-            }, 100);
+-        });
++        const workers = [];
++        for (let i = 0; i < limit; i++)
++            workers.push(worker());
++        await Promise.all(workers);
++        clearInterval(estimated);
+     }
+     /**
+      * Performs a HEAD request on the given URL to check if it is valid (status=200)
+@@ -189,5 +237,7 @@ class Downloader extends events_1.EventEmitter {
+         return false;
+     }
+ }
++// Délai d'inactivité pendant le corps d'un téléchargement (ms).
++Downloader.IDLE_MS = 60000;
+ exports.default = Downloader;
+ //# sourceMappingURL=Downloader.js.map
+\ No newline at end of file

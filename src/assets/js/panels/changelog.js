@@ -2,6 +2,7 @@
 
 import { changePanel, t } from '../utils.js';
 import BasePanel from '../utils/BasePanel.js';
+import { openExternal } from '../utils/external.js';
 const { shell } = require('electron');
 const pkg = require('../package.json');
 
@@ -112,7 +113,7 @@ class Changelog extends BasePanel {
 
         document.getElementById('changelog-back-btn')?.addEventListener('click', () => changePanel('home'));
         document.getElementById('changelog-github-btn')?.addEventListener('click', () => {
-            shell.openExternal(REPO_URL);
+            openExternal(REPO_URL);
         });
 
         await this.loadReleases();
@@ -262,7 +263,7 @@ class Changelog extends BasePanel {
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
                     const url = a.dataset.url;
-                    if (url) shell.openExternal(url);
+                    if (url) openExternal(url);
                 });
             });
 

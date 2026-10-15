@@ -1,6 +1,8 @@
 <html>
     <head>
         <meta charset="UTF-8">
+        <!-- CSP : aucun script en ligne ni gestionnaire on*="…" (une annonce piégée ne peut rien exécuter). 'unsafe-eval' reste pour le code obfusqué du build. -->
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: blob: file: https: http:; media-src 'self' blob: file: https: http:; connect-src 'self' https: http: ws: wss:; frame-src https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
         <link rel="stylesheet" href="assets/css/launcher.css">
     </head>
     <body class="hide">
