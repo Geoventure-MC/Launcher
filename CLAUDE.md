@@ -195,3 +195,7 @@ Cause : dans `minecraft-java-core-azbetter` (4.1.4), l'événement `error` du pa
 - **Launcher** : un seul lancement à la fois (`_launching`), `launch.removeAllListeners()` avant chaque lancement, `screen` transmis ; Azuriom en panne (`AZauth.verify` qui lève) → compte en cache conservé ; e-mail non vérifié → compte retiré sans être réécrit ; adresse d'authentification forcée en https (`secureAuthUrl`, sauf boucle locale) ; verrou d'instance unique AVANT `startup-guard` + `second-instance` → focus.
 - **Tests** : `tests/e2e/security.spec.mjs` ; le faux panel expose `setApiOver`, `setMods`, `setCommunityMods`, `setAuthMode` et sert `/mc/game/version_manifest_v2.json` en 502.
 - **Non fait** : signature des builds (certificat requis) et fuses Electron ; montée d'Electron 37 (hors support) et de la chaîne electron-builder (22 alertes de dev, correctif `npm audit fix --force` uniquement). Les dépendances de production sont à 0 vulnérabilité.
+
+## Fenêtre de chargement de Forge : journal de contrôle (2026-10-21)
+
+`utils/forgeconfig.js applyForgeWindowSettings()` renvoie `{file, ok, value}` après RELECTURE de `config/fml.toml` ; `home.js` écrit dans `launcher.log` la ligne `fml.toml <chemin> : earlyWindowControl=false` (ou « NON appliqué »). Si le joueur voit encore le logo Mojang rouge au lancement : lire cette ligne, puis `logs/latest.log` du jeu (`ImmediateWindowProvider not loading because splash screen is disabled` = appliqué). Cause probable sinon : launcher plus ancien que 1.5.27.

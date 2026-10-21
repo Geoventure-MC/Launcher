@@ -308,7 +308,8 @@ class Home {
         }
 
         await this.verifyModsBeforeLaunch();
-        applyForgeWindowSettings(this.gameDir());
+        const fml = applyForgeWindowSettings(this.gameDir());
+        this.writeLauncherLog(`fml.toml ${fml.file} : earlyWindowControl=${fml.value}${fml.ok ? '' : ' (NON appliqué' + (fml.error ? ' : ' + fml.error : '') + ')'}`);
         const opts = await this.getLaunchOptions();
         const playBtn = document.querySelector('.play-btn');
         const info = document.querySelector(".text-download");
