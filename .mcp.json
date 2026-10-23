@@ -20,6 +20,13 @@
       "headers": {
         "Authorization": "Bearer ${PANEL_MCP_KEY}"
       }
+    },
+    "azuriom": {
+      "type": "http",
+      "url": "https://geoventure.fr/api/geo-countries/mcp",
+      "headers": {
+        "Authorization": "Bearer ${AZURIOM_MCP_KEY}"
+      }
     }
   }
 }
