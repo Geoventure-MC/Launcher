@@ -35,7 +35,8 @@ function t(key) {
 
 loadTranslations();
 
-const settings_url = pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings;
+const settings_url = (typeof localStorage !== 'undefined' && localStorage.getItem('geoventure_server_url'))
+    || (pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings);
 
 export {
     config,

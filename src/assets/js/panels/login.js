@@ -11,7 +11,8 @@ import { openExternal } from '../utils/external.js';
 const { AZauth } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
 const pkg = require('../package.json');
-const settings_url = pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings;
+const settings_url = (typeof localStorage !== 'undefined' && localStorage.getItem('geoventure_server_url'))
+    || (pkg.user ? `${pkg.settings}/${pkg.user}` : pkg.settings);
 
 'use strict';
 

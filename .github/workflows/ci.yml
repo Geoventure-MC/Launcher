@@ -2,7 +2,7 @@ name: Launcher Build & Release
 
 on:
   push:
-    branches: [master]
+    branches: [master, test]
   workflow_dispatch:
 
 permissions:
@@ -28,8 +28,8 @@ jobs:
 
       - name: Configure git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Peterdu1109"
+          git config user.email "peter1109@hotmail.fr"
 
       - name: Decide release
         id: decide
@@ -75,7 +75,7 @@ jobs:
           NEW_VERSION="${NEW_VERSION#v}"
           git add package.json package-lock.json 2>/dev/null || git add package.json
           git commit -m "chore: release v$NEW_VERSION [skip ci]"
-          git push origin HEAD:master
+          git push origin "HEAD:${GITHUB_REF_NAME}"
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Bumped to v$NEW_VERSION"
@@ -205,6 +205,8 @@ jobs:
           tag_name: v${{ needs.prepare.outputs.version }}
           name: "Nexus v${{ needs.prepare.outputs.version }}"
           body_path: RELEASE_NOTES.md
+          prerelease: ${{ github.ref_name == 'test' }}
+          make_latest: ${{ github.ref_name != 'test' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
