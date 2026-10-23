@@ -253,7 +253,8 @@ class Instances {
             let result;
             try {
                 result = await getInstallState({
-                    slug: this.activeChannel === 'test' ? `${server.id}-test` : server.id,
+                    slug: server.id,
+                    channel: this.activeChannel,
                     gameDir: this.getGameDir(server.id),
                     settingsUrl: server.settings || pkg.settings,
                     env: pkg.env,

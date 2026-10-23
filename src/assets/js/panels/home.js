@@ -664,7 +664,8 @@ class Home {
         const statuses = await this.fetchServersStatus();
         if (statuses) {
             this.refreshAllServersStatus(statuses);
-            const def = statuses.find(s => s.is_default) || statuses[0];
+            const selectedId = localStorage.getItem('geoventure_selected_instance');
+            const def = (selectedId && statuses.find(s => String(s.id) === String(selectedId))) || statuses.find(s => s.is_default) || statuses[0];
             if (def) {
                 this.renderDefaultServerStatus({
                     online: !!def.online,
@@ -1354,6 +1355,7 @@ class Home {
             try {
                 const res = await getInstallState({
                     slug: server.id,
+                    channel: getSelectedChannel(),
                     gameDir: getGameDirectoryFor(server.id, dataDirectory, this.config),
                     settingsUrl: server.settings || settings_url,
                     env: pkg.env,

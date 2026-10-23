@@ -148,13 +148,15 @@ async function fetchJson(url) {
  * @param {{slug:string, gameDir:string, settingsUrl:string, env?:string}} p
  */
 export function getInstallState(p, { force = false } = {}) {
-    const hit = cache.get(p.slug);
+    const channel = p.channel === 'test' ? 'test' : 'stable';
+    const cacheKey = channel === 'test' ? `${p.slug}:test` : p.slug;
+    const hit = cache.get(cacheKey);
     if (!force && hit && Date.now() - hit.at < CACHE_TTL) return Promise.resolve(hit.result);
-    if (inflight.has(p.slug)) return inflight.get(p.slug);
+    if (inflight.has(cacheKey)) return inflight.get(cacheKey);
 
     const run = (async () => {
         const base = String(p.settingsUrl || '').endsWith('/') ? p.settingsUrl : `${p.settingsUrl}/`;
-        const q = `instance=${encodeURIComponent(p.slug)}`;
+        const q = `instance=${encodeURIComponent(p.slug)}${channel === 'test' ? '&channel=test' : ''}`;
         const manifestUrl = p.env === 'azuriom' ? `${base}api/centralcorp/files?${q}` : `${base}data?${q}`;
         const cfgUrl = p.env === 'azuriom' ? `${base}api/centralcorp/options?${q}` : `${base}utils/api?${q}`;
 
@@ -177,16 +179,16 @@ export function getInstallState(p, { force = false } = {}) {
         } catch (err) {
             result = { state: 'not_installed', offline: manifest === null, error: String(err) };
         }
-        cache.set(p.slug, { at: Date.now(), result });
+        cache.set(cacheKey, { at: Date.now(), result });
         return result;
-    })().finally(() => inflight.delete(p.slug));
+    })().finally(() => inflight.delete(cacheKey));
 
-    inflight.set(p.slug, run);
+    inflight.set(cacheKey, run);
     return run;
 }
 
 export function invalidateInstallState(slug) {
-    if (slug) cache.delete(slug); else cache.clear();
+    if (slug) { cache.delete(slug); cache.delete(`${slug}:test`); } else cache.clear();
 }
 
 export default { detectInstallState, getInstallState, invalidateInstallState };
