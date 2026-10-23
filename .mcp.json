@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ]
+    },
+    "pelican": {
+      "type": "http",
+      "url": "https://panel.bmeouchi.fr/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${PELICAN_MCP_KEY}"
+      }
+    },
+    "panel": {
+      "type": "http",
+      "url": "https://launcher.geoventure.fr/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${PANEL_MCP_KEY}"
+      }
+    }
+  }
+}
