@@ -55,7 +55,8 @@ export function offlineCacheDate() { return offlineSince; }
 
 function configCacheKey() {
     const slug = (typeof localStorage !== 'undefined' && localStorage.getItem('geoventure_selected_instance')) || 'default';
-    return CONFIG_CACHE_PREFIX + slug;
+    const ch = (typeof localStorage !== 'undefined' && localStorage.getItem('geoventure_selected_channel')) === 'test' ? '_test' : '';
+    return CONFIG_CACHE_PREFIX + slug + ch;
 }
 
 function saveConfigCache(config) {

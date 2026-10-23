@@ -3,6 +3,7 @@
 import { database, changePanel, t } from '../utils.js';
 import { getGameDirectoryFor } from '../utils/gamedir.js';
 import { getInstallState, invalidateInstallState } from '../utils/installstate.js';
+import { getSelectedChannel, setSelectedChannel, canAccessChannel, getChannelRoles, getAccountRoleName } from '../utils/instance.js';
 const { ipcRenderer } = require('electron');
 const pkg = require('../package.json');
 
@@ -37,6 +38,12 @@ class Instances {
             if (headerLogo.complete && headerLogo.naturalWidth === 0) headerLogo.style.display = 'none';
         }
         this.database = await new database().init();
+        this.account = await this._loadCurrentAccount();
+        this.activeChannel = getSelectedChannel();
+        if (this.activeChannel === 'test' && !canAccessChannel('test', this.account, this.config)) {
+            this.activeChannel = setSelectedChannel('stable');
+        }
+        this.initChannelSwitch();
         this.renderGrid();
         this.initFooter();
         this.watchPanelOpen();
@@ -44,6 +51,90 @@ class Instances {
             invalidateInstallState(e.detail && e.detail.slug);
             this.refreshInstallStates();
         });
+        window.addEventListener('nexus:account-updated', async (e) => {
+            this.account = (e.detail && e.detail.account) || (await this._loadCurrentAccount());
+            this.updateChannelSwitchState();
+            this.updateCardsRoleAccess();
+        });
+    }
+
+    async _loadCurrentAccount() {
+        try {
+            const uuidRecord = await this.database.get('1234', 'accounts-selected');
+            if (uuidRecord?.value?.selected) {
+                const rec = await this.database.get(uuidRecord.value.selected, 'accounts');
+                if (rec?.value) return rec.value;
+            }
+            const all = await this.database.getAll('accounts');
+            return all?.[0]?.value || null;
+        } catch {
+            return null;
+        }
+    }
+
+    initChannelSwitch() {
+        const stableBtn = document.getElementById('instances-channel-stable');
+        const testBtn = document.getElementById('instances-channel-test');
+        if (!stableBtn || !testBtn) return;
+
+        stableBtn.addEventListener('click', () => {
+            if (this.activeChannel === 'stable') return;
+            if (this.account && !canAccessChannel('stable', this.account, this.config)) return;
+            this.activeChannel = setSelectedChannel('stable');
+            this.updateChannelSwitchState();
+            this.updateCardsRoleAccess();
+            this.refreshInstallStates(true);
+        });
+
+        testBtn.addEventListener('click', () => {
+            if (this.activeChannel === 'test') return;
+            if (!canAccessChannel('test', this.account, this.config)) return;
+            this.activeChannel = setSelectedChannel('test');
+            this.updateChannelSwitchState();
+            this.updateCardsRoleAccess();
+            this.refreshInstallStates(true);
+        });
+
+        this.updateChannelSwitchState();
+    }
+
+    updateChannelSwitchState() {
+        const stableBtn = document.getElementById('instances-channel-stable');
+        const testBtn = document.getElementById('instances-channel-test');
+        const testBadge = document.getElementById('instances-test-badge');
+        if (!stableBtn || !testBtn) return;
+
+        const roleName = getAccountRoleName(this.account);
+        const canStable = canAccessChannel('stable', this.account, this.config);
+        const canTest = canAccessChannel('test', this.account, this.config);
+
+        if (this.activeChannel === 'test' && !canTest) {
+            this.activeChannel = setSelectedChannel('stable');
+        }
+
+        stableBtn.classList.toggle('active', this.activeChannel === 'stable');
+        stableBtn.classList.toggle('locked', !!this.account && !canStable);
+        stableBtn.disabled = !!this.account && !canStable;
+
+        testBtn.classList.toggle('active', this.activeChannel === 'test');
+        testBtn.classList.toggle('locked', !canTest);
+        testBtn.disabled = !canTest;
+
+        const testRoles = getChannelRoles('test', this.config);
+        if (testBadge) {
+            if (canTest) {
+                testBadge.textContent = roleName ? `✓ ${roleName}` : '✓ Autorisé';
+                testBadge.className = 'channel-role-badge unlocked';
+            } else {
+                testBadge.textContent = this.account
+                    ? `🔒 Grade requis (${roleName || 'Aucun'})`
+                    : '🔒 Grade Azuriom requis';
+                testBadge.className = 'channel-role-badge locked';
+            }
+        }
+        testBtn.title = canTest
+            ? `Accès à l'instance Test autorisé via votre grade Azuriom (${roleName || 'Admin'})`
+            : `Grades Azuriom autorisés pour Test : ${testRoles.slice(0, 6).join(', ')}`;
     }
 
     // Ré-évalue l'état d'installation à chaque ouverture du panneau.
@@ -51,9 +142,14 @@ class Instances {
         const panel = document.querySelector('.instances');
         if (!panel || typeof MutationObserver === 'undefined') return;
         let wasActive = panel.classList.contains('active');
-        new MutationObserver(() => {
+        new MutationObserver(async () => {
             const active = panel.classList.contains('active');
-            if (active && !wasActive) this.refreshInstallStates();
+            if (active && !wasActive) {
+                this.account = await this._loadCurrentAccount();
+                this.updateChannelSwitchState();
+                this.updateCardsRoleAccess();
+                this.refreshInstallStates();
+            }
             wasActive = active;
         }).observe(panel, { attributes: true, attributeFilter: ['class'] });
     }
@@ -66,10 +162,12 @@ class Instances {
         const subtitle = document.getElementById('instances-subtitle');
         if (subtitle) subtitle.textContent = t('instances_subtitle') || 'Choisis ton aventure';
 
+        grid.innerHTML = '';
         servers.forEach(server => {
             const theme = SERVER_THEMES[server.id] || {};
             const card = document.createElement('div');
             card.className = 'instance-card';
+            card.dataset.serverId = server.id;
             card.style.setProperty('--card-color', server.color || theme.color || '#fff');
 
             const tags = (theme.tags || []).map(tag =>
@@ -82,7 +180,7 @@ class Instances {
                 <div class="instance-card-content">
                     <img class="instance-logo" src="../src/assets/images/instances/${server.id}_logo.png" alt="${this._esc(server.name)}">
                     <div class="instance-icon" style="display:none;">${this._esc(server.name.charAt(0))}</div>
-                    <div class="instance-name">${this._esc(server.name)}</div>
+                    <div class="instance-name" data-base-name="${this._esc(server.name)}">${this._esc(server.name)}</div>
                     <div class="instance-desc">${this._esc(theme.desc || server.description || '')}</div>
                     ${tags ? `<div class="instance-tags">${tags}</div>` : ''}
                     <div class="instance-state checking" data-state="checking" aria-live="polite">
@@ -114,8 +212,35 @@ class Instances {
             grid.appendChild(card);
         });
 
+        this.updateCardsRoleAccess();
         this.fetchStatuses(servers);
         this.refreshInstallStates();
+    }
+
+    updateCardsRoleAccess() {
+        const servers = pkg.servers || [];
+        servers.forEach(server => {
+            const btn = document.querySelector(`.instance-action-btn[data-server-id="${server.id}"]`);
+            const card = btn && btn.closest('.instance-card');
+            if (!card) return;
+
+            const nameEl = card.querySelector('.instance-name');
+            if (nameEl) {
+                const base = nameEl.dataset.baseName || server.name;
+                nameEl.textContent = this.activeChannel === 'test' ? `${base} (Test)` : base;
+            }
+
+            const allowed = canAccessChannel(this.activeChannel, this.account, this.config, server.id);
+            card.classList.toggle('role-locked', !allowed);
+            btn.disabled = !allowed;
+            if (!allowed) {
+                const reqRoles = getChannelRoles(this.activeChannel, this.config, server.id);
+                btn.textContent = `🔒 GRADE REQUIS`;
+                card.title = `Grades Azuriom autorisés : ${reqRoles.slice(0, 6).join(', ')}`;
+            } else {
+                card.removeAttribute('title');
+            }
+        });
     }
 
     // Détection réelle (asynchrone, jamais bloquante) pour chaque instance.
@@ -128,7 +253,7 @@ class Instances {
             let result;
             try {
                 result = await getInstallState({
-                    slug: server.id,
+                    slug: this.activeChannel === 'test' ? `${server.id}-test` : server.id,
                     gameDir: this.getGameDir(server.id),
                     settingsUrl: server.settings || pkg.settings,
                     env: pkg.env,
@@ -166,6 +291,11 @@ class Instances {
         }
         card.dataset.installState = state;
         if (state === 'checking') return;
+        if (!canAccessChannel(this.activeChannel, this.account, this.config, serverId)) {
+            btn.disabled = true;
+            btn.textContent = '🔒 GRADE REQUIS';
+            return;
+        }
         const ready = state === 'installed' || state === 'update_required';
         btn.classList.toggle('play', ready);
         btn.classList.toggle('install', !ready);
@@ -224,10 +354,14 @@ class Instances {
     }
 
     getGameDir(serverId) {
-        return getGameDirectoryFor(serverId, dataDirectory, this.config || {});
+        return getGameDirectoryFor(serverId, dataDirectory, this.config || {}, this.activeChannel);
     }
 
     selectServer(server) {
+        if (!canAccessChannel(this.activeChannel, this.account, this.config, server.id)) {
+            return;
+        }
+        setSelectedChannel(this.activeChannel);
         localStorage.setItem('geoventure_server_url', server.settings);
         localStorage.setItem('geoventure_selected_instance', server.id);
         ipcRenderer.send('main-window-reload');

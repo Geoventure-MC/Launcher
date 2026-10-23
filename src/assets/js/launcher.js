@@ -14,6 +14,7 @@ const DiscordRPC = require('discord-rpc');
 
 import { config, logger, changePanel, database, addAccount, accountSelect, t } from './utils.js';
 import { getAzAuthUrl } from './utils/config.js';
+import { getSelectedChannel, canAccessChannel } from './utils/instance.js';
 import Login from './panels/login.js';
 import Home from './panels/home.js';
 import Settings from './panels/settings.js';
@@ -412,9 +413,10 @@ class Launcher {
     updateWhitelist(account) {
         const playBtn = document.querySelector(".play-btn");
         const roleName = account.user_info?.role?.name || null;
-        if (this.config.whitelist_activate &&
+        window.dispatchEvent(new CustomEvent('nexus:account-updated', { detail: { account } }));
+        if (!canAccessChannel(getSelectedChannel(), account, this.config) || (this.config.whitelist_activate &&
             (!this.config.whitelist.includes(account.name) &&
-                (!roleName || !this.config.whitelist_roles.includes(roleName)))) {
+                (!roleName || !this.config.whitelist_roles.includes(roleName))))) {
             playBtn.style.background = "#696969";
             playBtn.style.pointerEvents = "none";
             playBtn.style.boxShadow = "none";

@@ -7,6 +7,7 @@
  */
 import { database, changePanel, addAccount, accountSelect, showLoadingOverlay, hideLoadingOverlay, t } from '../utils.js';
 import { getAzAuthUrl } from '../utils/config.js';
+import { getSelectedChannel, canAccessChannel } from '../utils/instance.js';
 import { openExternal } from '../utils/external.js';
 const { AZauth } = require('minecraft-java-core-azbetter');
 const { ipcRenderer, shell } = require('electron');
@@ -102,9 +103,10 @@ class Login {
 
     updateWhitelist(account) {
         const playBtn = document.querySelector(".play-btn");
-        if (this.config.whitelist_activate &&
+        window.dispatchEvent(new CustomEvent('nexus:account-updated', { detail: { account } }));
+        if (!canAccessChannel(getSelectedChannel(), account, this.config) || (this.config.whitelist_activate &&
             (!this.config.whitelist.includes(account.name) &&
-                !this.config.whitelist_roles.includes(account.user_info.role.name))) {
+                !this.config.whitelist_roles.includes(account.user_info.role.name)))) {
             playBtn.style.backgroundColor = "#696969";
             playBtn.style.pointerEvents = "none";
             playBtn.style.boxShadow = "none";

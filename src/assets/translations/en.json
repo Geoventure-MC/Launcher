@@ -265,5 +265,10 @@
     "diag_send_note": "Nothing is sent unless you click \"Send to panel\".",
     "diag_sent": "Report sent to the panel. Thank you!",
     "diag_send_unsupported": "This panel does not accept reports yet (404). Copy or save it to pass it on.",
-    "diag_send_error": "Could not send (panel unreachable or error). Copy the report instead."
+    "diag_send_error": "Could not send (panel unreachable or error). Copy the report instead.",
+    "channel_stable": "Stable",
+    "channel_test": "Test",
+    "channel_stable_desc": "Stable Instance (Production)",
+    "channel_test_desc": "Test Instance (Staging)",
+    "channel_role_denied": "Insufficient Azuriom role to access this instance."
 }

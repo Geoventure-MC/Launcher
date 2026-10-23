@@ -15,7 +15,7 @@ import { getGameDirectory, getGameDirectoryFor } from '../utils/gamedir.js';
 import { applyForgeWindowSettings } from '../utils/forgeconfig.js';
 import { userKeepList } from '../utils/userdata.js';
 import { getInstallState, invalidateInstallState } from '../utils/installstate.js';
-import { withInstance } from '../utils/instance.js';
+import { withInstance, getSelectedChannel, setSelectedChannel, canAccessChannel, getChannelRoles, getAccountRoleName } from '../utils/instance.js';
 import { recordLaunch, addPlaytime, recordSession } from '../utils/achievements.js';
 import { isOfflineMode, offlineCacheDate, getAzAuthUrl } from '../utils/config.js';
 import * as desktopNotify from '../utils/desktopNotify.js';
@@ -86,6 +86,10 @@ class Home {
         this.initMaintenance();
         this.verifyModsBeforeLaunch();
         this.initServerSelector();
+        this.initChannelSelector();
+        window.addEventListener('nexus:account-updated', (e) => {
+            this.initChannelSelector(e.detail && e.detail.account);
+        });
         this.refreshPillInstallStates();
         window.addEventListener('nexus:install-state-changed', (e) => {
             invalidateInstallState(e.detail && e.detail.slug);
@@ -301,6 +305,16 @@ class Home {
             return;
         }
 
+        const activeAccount = await this._getCurrentAccount();
+        if (activeAccount && !canAccessChannel(getSelectedChannel(), activeAccount, this.config)) {
+            const info = document.querySelector('.text-download');
+            if (info) {
+                info.style.display = 'block';
+                info.innerHTML = `<span class="red">${escapeHtml(t('channel_role_denied') || 'Grade Azuriom insuffisant pour lancer cette instance.')}</span>`;
+            }
+            this._launching = false;
+            return;
+        }
         const cheats = await this.checkForCheatMods();
         if (cheats.length > 0) {
             const proceed = await this.showCheatModal(cheats);
@@ -1171,6 +1185,84 @@ class Home {
             playBtn.style.opacity = "1";
             playBtn.title = t('play');
         }
+    }
+
+    async _getCurrentAccount() {
+        try {
+            const uuidRecord = await this.database.get('1234', 'accounts-selected');
+            if (!uuidRecord?.value?.selected) return null;
+            const accountRecord = await this.database.get(uuidRecord.value.selected, 'accounts');
+            return accountRecord?.value || null;
+        } catch {
+            return null;
+        }
+    }
+
+    async initChannelSelector(accountOverride = null) {
+        const container = document.getElementById('channel-selector');
+        const stableBtn = document.getElementById('channel-btn-stable');
+        const testBtn = document.getElementById('channel-btn-test');
+        if (!container || !stableBtn || !testBtn) return;
+
+        const account = accountOverride || (await this._getCurrentAccount());
+        const roleName = getAccountRoleName(account);
+        const canStable = canAccessChannel('stable', account, this.config);
+        const canTest = canAccessChannel('test', account, this.config);
+        let activeChannel = getSelectedChannel();
+
+        // Si l'utilisateur était sur Test mais que son grade Azuriom ne l'autorise pas, retour automatique sur Stable
+        if (activeChannel === 'test' && account && !canTest && canStable) {
+            activeChannel = setSelectedChannel('stable');
+            ipcRenderer.send('main-window-reload');
+            return;
+        }
+
+        const nameEl = document.getElementById('sidebar-server-name');
+        if (nameEl) {
+            const baseName = nameEl.dataset.baseName || nameEl.textContent.replace(/\s*\[TEST\]$/i, '');
+            nameEl.dataset.baseName = baseName;
+            nameEl.textContent = activeChannel === 'test' && baseName ? `${baseName} [TEST]` : baseName;
+        }
+
+        stableBtn.classList.toggle('active', activeChannel === 'stable');
+        stableBtn.classList.toggle('locked', !!account && !canStable);
+        stableBtn.disabled = !!account && !canStable;
+        stableBtn.textContent = (!account || canStable) ? (t('channel_stable') || 'Stable') : `🔒 ${t('channel_stable') || 'Stable'}`;
+        const stableRoles = getChannelRoles('stable', this.config);
+        stableBtn.title = (!account || canStable)
+            ? (t('channel_stable_desc') || 'Instance Stable (Production)')
+            : `Accès réservé aux grades Azuriom : ${stableRoles.join(', ')} (votre grade : ${roleName || 'Aucun'})`;
+
+        testBtn.classList.toggle('active', activeChannel === 'test');
+        testBtn.classList.toggle('locked', !canTest);
+        testBtn.disabled = !canTest;
+        testBtn.textContent = canTest ? `🧪 ${t('channel_test') || 'Test'}` : `🔒 ${t('channel_test') || 'Test'}`;
+        const testRoles = getChannelRoles('test', this.config);
+        testBtn.title = canTest
+            ? `Instance Test (Pré-production) — Accès autorisé (${roleName || 'Admin'})`
+            : `Accès réservé aux grades Azuriom : ${testRoles.slice(0, 6).join(', ')} (votre grade : ${roleName || 'Non connecté'})`;
+
+        stableBtn.onclick = () => {
+            if (activeChannel === 'stable' || (account && !canStable)) return;
+            setSelectedChannel('stable');
+            const info = document.querySelector('.text-download');
+            if (info) {
+                info.style.display = 'block';
+                info.textContent = t('server_switching') || 'Passage sur Stable...';
+            }
+            setTimeout(() => ipcRenderer.send('main-window-reload'), 200);
+        };
+
+        testBtn.onclick = () => {
+            if (activeChannel === 'test' || !canTest) return;
+            setSelectedChannel('test');
+            const info = document.querySelector('.text-download');
+            if (info) {
+                info.style.display = 'block';
+                info.textContent = t('server_switching') || 'Passage sur Test...';
+            }
+            setTimeout(() => ipcRenderer.send('main-window-reload'), 200);
+        };
     }
 
     initServerSelector() {

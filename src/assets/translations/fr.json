@@ -265,5 +265,10 @@
     "diag_send_note": "L'envoi n'a lieu que si vous cliquez sur « Envoyer au panel ».",
     "diag_sent": "Rapport envoyé au panel. Merci !",
     "diag_send_unsupported": "Ce panel n'accepte pas encore les rapports (404). Copiez-le ou enregistrez-le pour le transmettre.",
-    "diag_send_error": "Envoi impossible (panel injoignable ou erreur). Copiez le rapport à la place."
+    "diag_send_error": "Envoi impossible (panel injoignable ou erreur). Copiez le rapport à la place.",
+    "channel_stable": "Stable",
+    "channel_test": "Test",
+    "channel_stable_desc": "Instance Stable (Production)",
+    "channel_test_desc": "Instance Test (Pré-production)",
+    "channel_role_denied": "Grade Azuriom insuffisant pour accéder à cette instance."
 }

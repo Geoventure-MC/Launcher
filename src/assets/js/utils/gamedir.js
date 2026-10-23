@@ -1,15 +1,16 @@
 /**
- * gamedir — resolves the per-server game data directory.
+ * gamedir — resolves the per-server and per-channel ('stable' | 'test') game data directory.
  *
  * Backward-compatibility contract:
- *   The DEFAULT server (no `geoventure_server_url` override, or an override
- *   equal to the launcher's default `pkg.settings`) MUST keep using the
+ *   The DEFAULT server on the 'stable' channel MUST keep using the
  *   historical directory:  <appdata>/.<dataDirectory>  (or <dataDirectory> on
  *   macOS). Existing worlds/mods are never orphaned.
  *
- *   Only OTHER servers get an isolated sub-directory under:
- *       <baseDir>/instances/<slug>
- *   so their mods/saves/config don't collide with the default server.
+ *   Other servers — or any server on the 'test' channel — get an isolated
+ *   sub-directory under:
+ *       <baseDir>/instances/<slug>          (stable)
+ *       <baseDir>/instances/<slug>-test     (test)
+ *   so their mods/saves/config never collide with the stable default server.
  */
 const path = require('path');
 const pkg = require('../package.json');
@@ -45,14 +46,17 @@ function getSelectedInstanceId() {
     return localStorage.getItem('geoventure_selected_instance') || null;
 }
 
-// Is the active instance the default one? (legacy path applies)
-//
-// Instances now share a single panel URL and are distinguished by their slug
-// (geoventure/elandor/pokeland), so isolation keys off the SELECTED INSTANCE,
-// not the server URL. The default instance keeps the historical directory so
-// existing worlds/mods are never orphaned; every other instance gets its own
-// isolated sub-directory with a fully separate modpack.
+function getSelectedChannel() {
+    try {
+        return localStorage.getItem('geoventure_selected_channel') === 'test' ? 'test' : 'stable';
+    } catch {
+        return 'stable';
+    }
+}
+
+// Is the active instance the default one on the stable channel? (legacy path applies)
 function isDefaultServer() {
+    if (getSelectedChannel() === 'test') return false;
     const selected = getSelectedInstanceId();
     if (!selected) return true;
     const def = getDefaultInstanceId();
@@ -61,26 +65,32 @@ function isDefaultServer() {
 
 /**
  * The active instance's game directory.
- *  - default instance -> <baseDir>                       (backward compatible)
- *  - other instance    -> <baseDir>/instances/<slug>
+ *  - default instance (stable) -> <baseDir>                       (backward compatible)
+ *  - other instance (stable)   -> <baseDir>/instances/<slug>
+ *  - any instance (test)       -> <baseDir>/instances/<slug>-test
  */
 function getGameDirectory(dataDirectory, config) {
     const base = getBaseDirectory(dataDirectory, config);
     if (isDefaultServer()) return base;
 
-    const slug = slugify(getSelectedInstanceId());
-    return path.join(base, 'instances', slug);
+    const rawId = getSelectedInstanceId() || getDefaultInstanceId() || 'geoventure';
+    const slug = slugify(rawId);
+    const folder = getSelectedChannel() === 'test' ? `${slug}-test` : slug;
+    return path.join(base, 'instances', folder);
 }
 
 /**
  * Game directory of a GIVEN instance slug (not necessarily the selected one).
- * Same rules as getGameDirectory: default instance -> legacy base dir.
+ * Same rules as getGameDirectory: default instance on stable -> legacy base dir.
  */
-function getGameDirectoryFor(slug, dataDirectory, config) {
+function getGameDirectoryFor(slug, dataDirectory, config, channel = null) {
     const base = getBaseDirectory(dataDirectory, config);
     const def = getDefaultInstanceId();
-    if (!slug || (def && slug === def)) return base;
-    return path.join(base, 'instances', slugify(slug));
+    const activeChannel = channel || getSelectedChannel();
+    if (activeChannel !== 'test' && (!slug || (def && slug === def))) return base;
+    const clean = slugify(slug || def || 'geoventure');
+    const folder = activeChannel === 'test' ? `${clean}-test` : clean;
+    return path.join(base, 'instances', folder);
 }
 
 export { getGameDirectoryFor, getGameDirectory, getBaseDirectory, isDefaultServer, slugify };

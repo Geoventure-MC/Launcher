@@ -5,6 +5,17 @@
             <div class="logo-text">NEXUS</div>
         </div>
         <div class="instances-subtitle" id="instances-subtitle">Choisis ton aventure</div>
+        <div class="instances-channel-switch" id="instances-channel-switch" role="group" aria-label="Branche d'instance">
+            <button type="button" class="instances-channel-btn active" data-channel="stable" id="instances-channel-stable">
+                <span class="channel-dot stable"></span>
+                <span class="channel-label">Instance Stable</span>
+            </button>
+            <button type="button" class="instances-channel-btn" data-channel="test" id="instances-channel-test">
+                <span class="channel-dot test"></span>
+                <span class="channel-label">Instance Test</span>
+                <span class="channel-role-badge" id="instances-test-badge"></span>
+            </button>
+        </div>
     </div>
 
     <div class="instances-grid" id="instances-grid"></div>
