@@ -199,3 +199,18 @@ Cause : dans `minecraft-java-core-azbetter` (4.1.4), l'événement `error` du pa
 ## Fenêtre de chargement de Forge : journal de contrôle (2026-10-21)
 
 `utils/forgeconfig.js applyForgeWindowSettings()` renvoie `{file, ok, value}` après RELECTURE de `config/fml.toml` ; `home.js` écrit dans `launcher.log` la ligne `fml.toml <chemin> : earlyWindowControl=false` (ou « NON appliqué »). Si le joueur voit encore le logo Mojang rouge au lancement : lire cette ligne, puis `logs/latest.log` du jeu (`ImmediateWindowProvider not loading because splash screen is disabled` = appliqué). Cause probable sinon : launcher plus ancien que 1.5.27.
+
+## Sélecteur de canal d'instance Stable / Test lié aux grades Azuriom & branche `test` (2026-10-23)
+
+- **Branche `test` & auto-push** : branche `test` ajoutée aux workflows `.github/workflows/ci.yml` et `.github/workflows/release.yml` (génère une pré-release GitHub `prerelease: true` sous `Peterdu1109 <peter1109@hotmail.fr>`) avec hook `.git/hooks/post-commit` qui push automatiquement sur `origin/test`.
+- **Logique des canaux & permissions par grade Azuriom (`src/assets/js/utils/instance.js`)** :
+  - `getSelectedChannel()` / `setSelectedChannel('stable' | 'test')` stocké dans `localStorage.geoventure_selected_channel`.
+  - `canAccessChannel(channel, userRole, serverCfg)` compare le grade Azuriom du joueur connecté (`account.role` / `userRole`, stocké aussi dans `localStorage.geoventure_user_role` à la connexion et au démarrage dans `login.js` et `launcher.js`) avec `allowed_roles` / `allowedRoles` (canal `stable`, ouvert à tous si vide) et `test_roles` / `testRoles` (canal `test`, restreint aux grades staff/bêta par défaut si non vide ou selon `channel`).
+  - `withInstance(url, slug, channel)` ajoute automatiquement `&channel=test` aux appels `/utils/api`, `/data` et `/utils/servers-status` lorsque le canal `test` est actif.
+- **Isolation des dossiers de jeu & états d'installation** :
+  - `src/assets/js/utils/gamedir.js` (`resolveGameDir`) : le canal `test` utilise un dossier dédié `<baseDir>/instances/<slug>-test` pour ne jamais écraser ou polluer le modpack `stable`.
+  - `src/assets/js/utils/installstate.js` et `src/assets/js/utils/config.js` : état d'installation (`<slug>:test`) et cache de configuration isolés par canal.
+- **Interface utilisateur (`home` & `instances`)** :
+  - `src/panels/home.html`, `src/assets/js/panels/home.js`, `src/assets/css/panels/home.css` : sélecteur `#home-channel-switch` (`Stable` / `🧪 Test`) sous les pastilles de serveur, cadenas `🔒` et infobulle indiquant les grades Azuriom requis si le joueur n'a pas le grade, bascule automatique sur `stable` si non autorisé, et blocage de sécurité dans `_doLaunch()` avant lancement.
+  - `src/panels/instances.html`, `src/assets/js/panels/instances.js`, `src/assets/css/panels/instances.css` : sélecteur de canal par carte d'instance et dans le panneau de détails, badges des grades Azuriom autorisés (`#inst-detail-roles`).
+  - Traductions FR/EN ajoutées dans `src/assets/langs/fr.json` et `src/assets/langs/en.json` (`channel_*`, `instances_channel_*`).
