@@ -202,7 +202,7 @@ Cause : dans `minecraft-java-core-azbetter` (4.1.4), l'événement `error` du pa
 
 ## Sélecteur de canal d'instance Stable / Test lié aux grades Azuriom & branche `test` (2026-10-23)
 
-- **Branche `test` & auto-push** : branche `test` ajoutée aux workflows `.github/workflows/ci.yml` et `.github/workflows/release.yml` (génère une pré-release GitHub `prerelease: true` sous `Peterdu1109 <peter1109@hotmail.fr>`) avec hook `.git/hooks/post-commit` qui push automatiquement sur `origin/test`.
+- **Branche `test` & auto-push** : branche `test` ajoutée aux workflows `.github/workflows/ci.yml` et `.github/workflows/release.yml` (génère une pré-release GitHub `prerelease: true` sous `Peterdu1109 <peter1109@hotmail.fr>`) avec hook `.git/hooks/post-commit` qui push automatiquement sur `origin/main`.
 - **Logique des canaux & permissions par grade Azuriom (`src/assets/js/utils/instance.js`)** :
   - `getSelectedChannel()` / `setSelectedChannel('stable' | 'test')` stocké dans `localStorage.geoventure_selected_channel`.
   - `canAccessChannel(channel, userRole, serverCfg)` compare le grade Azuriom du joueur connecté (`account.role` / `userRole`, stocké aussi dans `localStorage.geoventure_user_role` à la connexion et au démarrage dans `login.js` et `launcher.js`) avec `allowed_roles` / `allowedRoles` (canal `stable`, ouvert à tous si vide) et `test_roles` / `testRoles` (canal `test`, restreint aux grades staff/bêta par défaut si non vide ou selon `channel`).
@@ -214,3 +214,14 @@ Cause : dans `minecraft-java-core-azbetter` (4.1.4), l'événement `error` du pa
   - `src/panels/home.html`, `src/assets/js/panels/home.js`, `src/assets/css/panels/home.css` : sélecteur `#home-channel-switch` (`Stable` / `🧪 Test`) sous les pastilles de serveur, cadenas `🔒` et infobulle indiquant les grades Azuriom requis si le joueur n'a pas le grade, bascule automatique sur `stable` si non autorisé, et blocage de sécurité dans `_doLaunch()` avant lancement.
   - `src/panels/instances.html`, `src/assets/js/panels/instances.js`, `src/assets/css/panels/instances.css` : sélecteur de canal par carte d'instance et dans le panneau de détails, badges des grades Azuriom autorisés (`#inst-detail-roles`).
   - Traductions FR/EN ajoutées dans `src/assets/langs/fr.json` et `src/assets/langs/en.json` (`channel_*`, `instances_channel_*`).
+
+## Règle absolue : Tout en français (Commits, Releases, Pull Requests)
+
+- **Branche unique `main`** : Tout le développement et tous les pushs se font directement sur `main` (plus de branche `test`). Le hook `.git/hooks/post-commit` pousse automatiquement sur `origin/main` avec l'identité `Peterdu1109 <peter1109@hotmail.fr>`.
+- **100 % en français** : Tous les messages de commit Git, titres et descriptions de Pull Requests, notes de version (GitHub Releases) et commentaires doivent être rédigés **exclusivement en français**.
+- **Format des messages de commit** :
+  - Nouveauté (bump `minor`) : `Ajout : description claire en français` (ou `feat: description en français`)
+  - Correction (bump `patch`) : `Correction : description claire en français` (ou `fix: description en français`)
+  - Amélioration (bump `patch`) : `Amélioration : description claire en français` (ou `Optimisation : ...`)
+  - Maintenance / Doc (sans release) : `Maintenance : ...` ou `Documentation : ...`
+  - Ne jamais écrire de message de commit en anglais.
