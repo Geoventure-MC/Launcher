@@ -66,27 +66,48 @@ class Launcher {
     initDiscordRPC() {
         if (this.config.rpc_activation) {
             const rpc = new DiscordRPC.Client({ transport: 'ipc' });
+            this.rpc = rpc;
+            window.updateDiscordPresence = (mode, extra) => this.updatePresence(mode, extra);
+
             rpc.on('ready', () => {
-                const presence = {
-                    details: this.config.rpc_details,
-                    state: this.config.rpc_state,
-                    largeImageKey: this.config.rpc_large_image,
-                    largeImageText: this.config.rpc_large_text,
-                    smallImageKey: this.config.rpc_small_image,
-                    smallImageText: this.config.rpc_small_text,
-                    buttons: [
-                        { label: this.config.rpc_button1, url: this.config.rpc_button1_url },
-                        { label: this.config.rpc_button2, url: this.config.rpc_button2_url }
-                    ]
-                };
-                // Discord refuse toute l'activité si un bouton n'a pas de libellé ou d'URL http(s) valide.
-                presence.buttons = presence.buttons.filter(b => b.label && /^https?:\/\//i.test(String(b.url || '')));
-                if (!presence.buttons.length) delete presence.buttons;
-                Promise.resolve(rpc.setActivity(presence)).catch(err => console.warn('[RPC] activité refusée :', err && err.message));
+                this.updatePresence('launcher');
             });
             rpc.on('error', err => console.warn('[RPC]', err && err.message));
             rpc.login({ clientId: this.config.rpc_id }).catch(console.error);
         }
+    }
+
+    updatePresence(mode = 'launcher', extra = {}) {
+        if (!this.rpc || !this.config) return;
+        let details = this.config.rpc_details || 'Dans le launcher Geoventure';
+        let state = this.config.rpc_state || 'Prépare son aventure';
+        let startTimestamp = undefined;
+
+        if (mode === 'game') {
+            const serverName = extra.serverName || 'Geoventure';
+            details = `En jeu sur ${serverName}`;
+            state = 'Survie moddée · play.geoventure.fr';
+            startTimestamp = extra.startTime || Date.now();
+        }
+
+        const presence = {
+            details,
+            state,
+            startTimestamp,
+            largeImageKey: this.config.rpc_large_image,
+            largeImageText: this.config.rpc_large_text || 'Geoventure',
+            smallImageKey: this.config.rpc_small_image,
+            smallImageText: mode === 'game' ? 'En jeu' : (this.config.rpc_small_text || 'Geoventure'),
+            buttons: [
+                { label: this.config.rpc_button1, url: this.config.rpc_button1_url },
+                { label: this.config.rpc_button2, url: this.config.rpc_button2_url }
+            ]
+        };
+        // Discord refuse toute l'activité si un bouton n'a pas de libellé ou d'URL http(s) valide.
+        presence.buttons = presence.buttons.filter(b => b.label && /^https?:\/\//i.test(String(b.url || '')));
+        if (!presence.buttons.length) delete presence.buttons;
+        if (!startTimestamp) delete presence.startTimestamp;
+        Promise.resolve(this.rpc.setActivity(presence)).catch(err => console.warn('[RPC] activité refusée :', err && err.message));
     }
 
     initFrame() {

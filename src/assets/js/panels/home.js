@@ -611,6 +611,17 @@ class Home {
             this._launchCounted = true;
             this._playStart = Date.now();
             try {
+                if (typeof window.updateDiscordPresence === 'function') {
+                    const slug = localStorage.getItem('geoventure_selected_instance') || 'Geoventure';
+                    window.updateDiscordPresence('game', {
+                        serverName: slug === 'geoventure' ? 'Geoventure' : slug,
+                        startTime: this._playStart
+                    });
+                }
+            } catch (err) {
+                console.warn('[RPC] update failed:', err);
+            }
+            try {
                 const slug = localStorage.getItem('geoventure_selected_instance') || null;
                 this._playInstance = slug;
                 recordLaunch(slug);
@@ -627,6 +638,11 @@ class Home {
         this._launching = false;
         this._installStateRefreshed = false;
         this._pillProgressEnd();
+        try {
+            if (typeof window.updateDiscordPresence === 'function') {
+                window.updateDiscordPresence('launcher');
+            }
+        } catch { /* ignore */ }
         if (launcherSettings.launcher.close === 'close-launcher') ipcRenderer.send("main-window-show");
         progressBar.style.display = "none";
         info.style.display = "none";
