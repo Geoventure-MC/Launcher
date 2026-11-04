@@ -1,0 +1,231 @@
+# Référence complète (ancien CLAUDE.md, déplacé tel quel le 2026-11-04)
+
+Lire la section utile avec `grep -n` ; le `CLAUDE.md` à la racine ne garde que l'essentiel. Certaines sections sont datées : le code fait foi.
+
+# CLAUDE.md — Écosystème Geoventure-MC (Panel · Launcher · Installer)
+
+> Fichier de mémoire pour Claude Code. À placer à la racine du repo `panel`
+> (et idéalement une copie dans `installer` et `launcher`).
+> Dernière mise à jour : 2026-07-07.
+
+## 🎯 Vue d'ensemble
+
+Trois dépôts qui **travaillent ensemble** :
+
+| Repo | Stack | Rôle |
+|------|-------|------|
+| `geoventure-mc/panel` | **Laravel 11 + PHP 8.2** (Blade, Bootstrap) | Panel d'admin web : crée les users, gère serveurs/mods/loader/whitelist/RPC/UI, **expose la config au launcher** via `/utils/*` et `/data` |
+| `geoventure-mc/launcher` | **Electron 37 + JS vanilla** | App de jeu. Lit la config du panel. `env: "panel"` (NE JAMAIS CHANGER). `settings: https://launcher.geoventure.fr/` |
+| `geoventure-mc/installer` | **Vue 3 + TS + Vite + PHP** | Installe le panel sur le serveur web (télécharge `panel-*.zip` depuis `CentralCorp/centralpanel-v2`) |
+
+3 serveurs gérés : **Geoventure** (#4ade80), **Elandor** (#a78bfa), **Pokeland** (#fb923c). Forge 1.20.1-47.4.20.
+
+## 🔗 Contrat Panel ↔ Launcher (CLÉ)
+
+Le launcher lit le panel via ces routes (définies dans `panel/routes/web.php`) :
+- `GET /utils/api`  → `api/ApiController@getOptions` : toute la config (maintenance, loader, serveur, RPC, UI, whitelist…)
+- `GET /utils/mods` → `api/ModController@getMods` : mods optionnels
+- `GET /utils/notifications` → `api/NotificationController@getNotifications` : annonces in-app
+- `GET /utils/servers-status` → `api/ServerStatusController@getServersStatus` : statut en ligne (SLP, cache 30s)
+- `GET /utils/community-mods` → `api/CommunityModController@getCommunityMods` : mods communauté approuvés
+- `GET /utils/leaderboards` → `api/LeaderboardController@getLeaderboards` : classement joueurs
+- `GET /utils/factions` → `api/FactionController@getFactions` : liste des factions
+- `GET /utils/achievements` → `api/AchievementController@getAchievements` : catalogue des succès (`code`, `name`, `description`, `icon`, `points`, `category`, `condition_type`, `condition_value`). `condition_type ∈ first_launch|launch_count|playtime_hours|instances_tried|manual`.
+- `POST /utils/telemetry` → `api/TelemetryController@store` : télémétrie opt-in (CSRF exempté)
+- `GET /utils/game-events` → événements de jeu (Halloween, Noël…) `[{slug,name,enabled,phase,opensAt,endsAt,settings}]` (`phase ∈ upcoming|open|ended|disabled`, dates en epoch ms). **Lu par le launcher** (2026-10-14) : `home.js initGameEvents()` → carte `#game-events-card` de l'accueil (colonne de droite) : au plus 2 événements upcoming/open (les « open » d'abord, puis par date), compte à rebours local chaque seconde (« ouvre dans 2 j 4 h » / « en cours, se termine dans 5 j 3 h »), phase recalculée localement (upcoming dont l'ouverture est passée → open, terminé → retiré), accent orange `#fb923c` sur `data-slug="halloween"`, accent par défaut sinon. Endpoint GLOBAL : jamais `?instance=`. Nouvelle lecture toutes les 5 min avec `If-None-Match` (`304` = rien à faire). Non-ok / 502 HTML / JSON invalide / réseau coupé → carte masquée, sans erreur visible. Rendu en DOM (`textContent`), jamais d'innerHTML avec le nom. i18n `game_event_*`, `game_events_title`, `gev_unit_*` (fr/en).
+- `GET /data` → `api/FileController@getFiles` : liste des fichiers du modpack (hash/size/url)
+- `POST /utils/diagnostic` → (OPTIONNEL, pas encore côté panel) reçoit `{launcherVersion, instance, os, report}` quand le joueur clique « Envoyer au panel » ; le launcher tolère 404/405/501.
+- `GET /api-schema.json` → version du schéma API
+
+Le launcher construit l'URL via `settings_url` (= `pkg.settings` ou `localStorage.geoventure_server_url`) + le chemin. Réponses JSON `JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES`.
+
+## 🧩 Multi-instance (Nexus)
+
+Le launcher s'appelle **Nexus** et propose plusieurs serveurs/instances
+(Geoventure, Elandor, Pokeland) via le sélecteur (`panels/instances`). Chaque
+instance a son propre modpack/loader/mods côté panel. Routing : **`?instance=<slug>`**
+ajouté à tous les appels panel via `utils/instance.js → withInstance()` :
+- `utils/config.js` → `/utils/api?instance=<slug>`
+- `panels/home.js getBaseUrl()` → `/data?instance=<slug>` (modpack séparé)
+- `panels/settings.js` → `/utils/mods?instance=<slug>`
+- `localStorage.geoventure_selected_instance` = le slug actif (set par le picker
+  ET par les pills serveur du home). `utils/gamedir.js` isole le dossier de jeu
+  par instance (`instances/<slug>`), l'instance par défaut (1ʳᵉ de `pkg.servers`)
+  gardant le chemin legacy. Sans instance → comportement global rétrocompatible.
+
+## 🏆 Succès & Leaderboards live (launcher)
+
+- **Succès in-app** : compteurs locaux (`launch_count`, `playtime_minutes`,
+  `instances_tried`, `first_launch`) stockés dans `localStorage` via
+  `utils/achievements.js`, fusionnés avec le catalogue serveur de
+  `/utils/achievements`. Badges rendus dans le panneau profil avec toasts de
+  déblocage.
+- **Leaderboards live** : `profile.js` poll `utils/leaderboards` toutes les 30s
+  tant que le panneau profil est actif, avec `ETag`/`If-None-Match`
+  (`304` → pas de re-render) et animations de changement de rang.
+
+## ✅ Features LAUNCHER livrées (session 2026-07-07)
+
+- **Réparation 1 clic** (`panels/settings.js` + `panels/settings.html`, onglet
+  Avancé) : section « 🔧 Réparer l'installation » — purge les caches de config
+  `localStorage` (`geoventure_config_cache_*`), vérifie chaque fichier du
+  modpack de l'instance active contre le manifeste `{settings_url}data?instance=<slug>`
+  (taille puis hash **sha1** en streaming, dossier de jeu via `utils/gamedir.js`,
+  anti path-traversal) et supprime les fichiers corrompus (re-téléchargés au
+  prochain lancement). Confirmation avant action, spinner pendant l'analyse,
+  rapport final, erreur réseau gérée. i18n `repair_*` (fr/en).
+- **Skin 3D dans le profil** (`panels/profile.js` + `profile.html`/`profile.css`) :
+  carte « 🧍 Mon skin » — preview 3D du joueur connecté (iframe
+  `{azauth}skin3d/3d-api/skin-api/{pseudo}`) + bouton « Changer de skin »
+  (PNG 64x64 ou 64x32 validé via `Image.onload`, POST multipart
+  `{azauth}api/skin-api/skins/update` avec `access_token` du compte + header
+  Bearer). Succès → preview + tête du header rafraîchies. Skin-API absente
+  (probe avatar → 404) → message discret `profile_skin_api_missing`, pas de
+  crash. i18n `profile_skin_*` (fr/en).
+
+## ✅ Feature LIVRÉE : Annonces / Notifications
+
+Page admin **📢 Annonces** qui alimente le bandeau de notifications du launcher.
+
+**Panel** (appliqué via zip sur la branche — à committer/migrer) :
+- `database/migrations/2026_05_29_120000_create_options_notifications_table.php` — table `options_notifications` (id, type, message, url, active, expires_at, timestamps)
+- `app/Models/OptionsNotification.php`
+- `app/Http/Controllers/AdminNotificationController.php` — index/store/toggle/destroy
+- `app/Http/Controllers/api/NotificationController.php` — `getNotifications()` (actives + non expirées)
+- `resources/views/admin/notifications.blade.php`
+- `routes/web.php` — routes `admin.notifications.*` + `GET /utils/notifications`
+- `resources/views/layouts/admin.blade.php` — entrée sidebar (icône `bi-megaphone`)
+- `lang/fr/messages.php` + `lang/en/messages.php` — bloc `notifications.*`, `sidebar.notifications`, `flash.notification_*`
+- ⚠️ Après merge : `php artisan migrate`
+
+**Launcher** (déjà poussé sur `master`) :
+- `src/assets/js/panels/home.js` → `initNotifications()` lit `{settings_url}utils/notifications` (et `refreshAllServersStatus` lit `{settings_url}utils/servers-status`).
+- Bandeau déjà en place : `#notifications-banner` dans `src/panels/home.html`, styles + i18n (`notif_learn_more`).
+- Format attendu par le launcher : `[{ id, type, message, url, expiresAt, createdAt }]`, `type ∈ info|warning|maintenance|event`.
+
+## 🩹 Stabilité / correctifs réseau (session 2026-06-09)
+
+Correctifs livrés suite aux erreurs d'une session launcher live (502/404/double-slash/JSON-parse).
+
+**Launcher** (poussé sur `master`) :
+- `utils/config.js` — `getAzAuthUrl()` garde-fou si `azauth` null ; `GetConfig()` vérifie `response.ok` (sinon throw) ; `GetNews()` non-fatal (renvoie un placeholder au lieu de throw).
+- `launcher.js` + `panels/login.js` — `getAzAuthUrl()` garde-fou null ; suppression du `console.log('initPreviewSkin called')` (debug) ; null-guards sur les lookups DB `accounts-selected → accounts` dans `initPreviewSkin()`/`initOthers()` (plus de crash au 1er lancement / compte absent).
+- `utils.js` — `getAzAuthUrl()` garde-fou `config.config.azauth` null ; `headplayer(pseudo)` ignore la requête skin si pseudo vide (évite `.../avatars/face//` 404).
+- `panels/settings.js` — les 3 fetch de mods (`updateModsConfig`, `createModsConfig`, `displayMods`) vérifient `response.ok` avant `.json()` (évite `SyntaxError: Unexpected token '<'` sur page HTML 502).
+- `panels/home.js` — `_doLaunch()` : `await launch.Launch()` dans un `try/catch` ; en cas d'échec (ex. `GetInfoVersion: Failed to fetch`), le bouton play réapparaît + message `launch_error` au lieu d'une promesse rejetée non gérée + bouton bloqué.
+- `index.js` — `os.platform()` (au lieu de `os ==`) ; garde sur `releases_url` avant accès `assets`.
+- i18n `launch_error` ajoutée (fr/en).
+
+**Panel** (poussé sur `main`) :
+- `api/ApiController.php` — `azauth` jamais null (fallback `azuriom_url` puis `""`) ; defaults loader alignés sur le serveur réel : `game_version` → `1.20.1`, `loader.build` → `1.20.1-47.4.20`, robustes aussi si le champ existe mais est vide (évite un `game_version` vide qui casse `GetInfoVersion`).
+- `api/FileController.php` — `GET /data` renvoie `[]` (200) si `storage/app/public/data` absent + garde sur `scandir()` (sinon `foreach(false)` → TypeError → 500 HTML → launcher plante au téléchargement du jeu).
+- `AdminServerController.php` + `routes/web.php` — suppression de la route/méthode `server/update` morte et risquée (mass-assignment sur `OptionsServer::first()`).
+
+**Skin API (Azuriom)** : le launcher utilise déjà les bons endpoints du plugin Skin-API (`/api/skin-api/avatars/face/{name}`, `/skin3d/3d-api/skin-api/{name}`, `POST /api/skin-api/skins/update`). Les 404 observés = plugin Skin-API non installé/actif sur le domaine Azuriom, **pas** un bug launcher.
+
+**À faire côté serveur (infra, pas du code)** :
+- Uploader le modpack Forge 1.20.1 dans `storage/app/public/data/` du panel.
+- Vérifier Admin → Loader (`1.20.1`, forge `1.20.1-47.4.20`, activé) et Admin → Général (`azuriom_url`).
+- Installer/activer le plugin Skin-API sur l'Azuriom pour les avatars.
+
+## 📋 Features PANEL à faire (proposées, pas encore codées)
+
+1. **Mode maintenance amélioré** — existe déjà (`options_security.maintenance` + `maintenance_message` exposés dans `/utils/api`). À enrichir : toggle rapide + le launcher bloque le lancement.
+2. **Dashboard stats** — graphiques connexions/joueurs/version launcher (via télémétrie installer).
+3. **Journal d'audit** — log des actions admin (migration + observer + vue).
+4. ~~`GET /utils/servers-status`~~ — ✅ **Livré** (SLP Minecraft, cache 30s).
+
+## 🧩 Conventions PANEL (Laravel) — à respecter
+
+- Contrôleurs admin : `App\Http\Controllers\Admin*` ou `AdminXController`. API : `App\Http\Controllers\api\*`.
+- Modèles d'options : `App\Models\Options*` (table `options_*`, `$fillable`, `$casts`).
+- Vues : `resources/views/admin/*.blade.php`, `@extends('layouts.admin')`, sections `title`/`page-title`/`content`.
+- Flash : `->with('success', __('messages.flash.xxx'))`. Erreurs : `__('messages.common.errors_occurred')`.
+- i18n : `lang/fr/messages.php` & `lang/en/messages.php` (tableaux PHP). Apostrophes FR → chaînes en `"..."`.
+- Sidebar : `resources/views/layouts/admin.blade.php`, items `bi-*` (Bootstrap Icons).
+- Routes admin dans le groupe `Route::prefix('admin')->middleware('auth')` (indentation **4 espaces**).
+- Toujours valider `php -l` après modif (PHP dispo dans l'env).
+
+## ⚙️ CI / Release (IMPORTANT)
+
+- **Installer** & **Launcher** : push sur `master` → workflow bump auto la version (`[skip ci]`), build, et crée une **GitHub Release** (avec `installer.zip` / binaires launcher). Release notes user-friendly déjà en place côté installer.
+- Installer : le ZIP est **autonome** (chemins `/assets/...` locaux, PAS de CDN). Ne pas réintroduire le double-build CDN (causait écran bleu).
+- YAML i18n (installer, `src/locales/*.yml`) : apostrophes FR → **double-quotes** sinon build cassé.
+
+## 🔐 Accès / Limitations connues
+
+- Le panel se télécharge en HTTP direct : `https://github.com/CentralCorp/centralpanel-v2/releases/latest` (public). Dernière base : **v1.0.8** (`panel-1.0.8.zip`).
+- Bug connu launcher : `config.js getAzAuthUrl` plante si `azauth`/`authUrl` est `null` côté panel → bien configurer l'auth (Admin → Général → `azuriom_url`). Le health-check de l'installer le détecte.
+
+## 🌿 Branches de dev
+
+- Installer & Launcher : `claude/friendly-tesla-7kNM4` (mais le user pousse souvent le launcher direct sur `master`).
+- Panel : nouveau repo — créer une branche dédiée (ex: `claude/...`) et ouvrir une **PR draft**.
+
+## Tests E2E (Playwright + vrai Electron, 2026-10-07)
+
+`npm ci && npm run test:e2e` (lance `xvfb-run -a playwright test` si pas de `DISPLAY` ; l'Electron 37 du `node_modules` est utilisé via `_electron.launch` avec `--no-sandbox`). Tout est local, aucun workflow GitHub Actions. Si le binaire Electron manque : `node node_modules/electron/install.js`.
+- `tests/e2e/mock-panel.mjs` = faux panel HTTP (port 8790) : `/utils/*`, `/data`, AZauth (`/api/auth/*`), skins, RSS. Modes commutables à chaud : `ok`, `html502`, `empty`, `azauthnull`, `down`. Les formes viennent du vrai panel (ex. `/utils/leaderboards` DOIT porter `rank`, `/utils/mods.mods` est indexé par nom de fichier).
+- `helpers.mjs` : un Electron par test dans un dossier jetable (`HOME` isolé = dossier de jeu, `AppData` dans le cwd), `localStorage`/IndexedDB amorcés (instance + compte AZauth), et le domaine `https://launcher.geoventure.fr/` des `pkg.servers[].settings` est redirigé vers le mock depuis le processus principal. `prepare(home)` crée un dossier de jeu AVANT l'init des panneaux (la liste des mods est décidée à l'init).
+- `launcher.spec.mjs` : démarrage/instances/connexion, home (pastilles, états Installé/À télécharger/Incomplet/Mise à jour requise, bandeau d'annonces échappé, `?instance=`), carte d'événement de jeu (`/utils/game-events` : ordre, accent, compte à rebours, nom hostile échappé, 502 de la route seule via `mock.setGameEvents('html502')`), résilience (502 HTML avec/sans cache, socket coupé, JSON vide, azauth null), réglages (mods, réparation 1 clic, path traversal), profil (classement, saison, factions, succès secrets, skin 3D, upload de skin). Captures dans `tests/e2e/screenshots/` (gitignorées).
+- Limites : les ressources externes https (cdnjs, Google Fonts, api.github.com) échouent en CI sandbox (proxy MITM, `ERR_CERT_AUTHORITY_INVALID`) : sans effet sur les assertions. Lancement du jeu (Minecraft/Java) et connexion Microsoft non testés.
+
+## Installation / patch Forge qui « reste à l'infini » (2026-10-07)
+
+Cause : dans `minecraft-java-core-azbetter` (4.1.4), l'événement `error` du patcher Forge n'était relayé par personne (`Minecraft-Loader/index.js forge()`) → `ERR_UNHANDLED_ERROR` dans une promesse jamais attendue → `GetLoader` ne se résolvait plus → écran figé sur « Patch ». Une erreur de loader arrivait aussi comme CHAÎNE et était prise pour le JSON du loader (`Launch.js`).
+- Correctif = `patches/minecraft-java-core-azbetter+4.1.4.patch` (appliqué par `patch-package` au `postinstall`) : relais de l'erreur, filet `try/catch` dans `install()`, contrôle du retour du loader dans `Launch.js`, délai d'inactivité de 180 s sur chaque processeur Forge (JVM tuée + erreur claire), erreur de lancement du processus gérée. **Si la lib est mise à jour, régénérer le patch** (`npx patch-package minecraft-java-core-azbetter`).
+- `panels/home.js` : l'erreur d'installation s'affiche et le bouton Jouer revient ; la tâche Forge en cours (« Task: MERGE_MAPPING ») est affichée pendant le patch ; journal sur disque `<dossier de jeu>/logs/launcher.log` (Linux : `~/.Nexus/logs/launcher.log`).
+
+## Profils de performance & diagnostic (Réglages > Avancé, 2026-10-08)
+
+- `utils/perf.js` (module PUR, testable depuis Node) : `buildProfile(id, {totalGb, cores})`, `recommendProfile`, `sanitizeJvmArgs`. Garde-fous : jamais > 60 % de la RAM (`floor(0.6 × total)`), minimum 3 Go pour le modpack ; si le plafond < 3 Go → `insufficient` : avertissement, bouton désactivé, RIEN d'appliqué. Cibles max/min : eco 4/2, équilibré 6/3, performant 8/4 (plafonnées). Arguments **Java 17 uniquement** : G1 (base/Aikar allégé) ou `-XX:+UseZGC` (performant avec ≥ 8 cœurs et ≥ 6 Go) — **jamais `-XX:+ZGenerational`** (Java 21). `-Xms/-Xmx` jamais dans les arguments (curseurs RAM). La distance de rendu n'est qu'affichée.
+- Stockage : RAM dans la base `ram`, arguments JVM dans `java-args` (`{uuid:'1234', args:[]}`), profil dans `localStorage.nexus_perf_profile` (`{id, ramMin, ramMax, appliedAt, modified}` ; `modified` passe à true si l'utilisateur touche aux curseurs ou aux arguments). `home.js getLaunchOptions()` passe désormais `JVM_ARGS` (sanitisés) à la lib et écrit une ligne `lancement RAM…, JVM…` dans `launcher.log`.
+- Matériel : `settings.js detectHardware()` (os.totalmem/freemem/cpus, synchrone) ; GPU via IPC `get-gpu-info` (`app.js`, `app.getGPUInfo('basic')`, délai 3 s) récupéré EN ARRIÈRE-PLAN (`detectGpu()`) : ne jamais l'attendre dans `init()` (ça a ralenti tout le launcher et fait échouer des tests E2E). Simulation pour les tests : variables d'environnement `NEXUS_SIM_RAM_GB`, `NEXUS_SIM_FREE_GB`, `NEXUS_SIM_CORES`, `NEXUS_SIM_GPU`.
+- `utils/diagnostic.js` : `redact()` (jetons des comptes enregistrés, `--accessToken`, `password=`, Bearer/JWT, e-mails, hex ≥ 32, home → `~`, `/home/<x>` → `/home/<user>`), `tailLines`, `collectDiagnostic()` (300 lignes de `launcher.log`/`latest.log`, sondes panel `api-schema.json` / Azuriom / Mojang `piston-meta` / Forge maven, 6 s). TOUT le rapport passe par `redact()` avant affichage. Envoi `POST {settings_url}utils/diagnostic` UNIQUEMENT sur clic ; 404/405/501 tolérés. `save-logs-dialog` accepte un nom de fichier par défaut.
+- Tests : `tests/e2e/perf.spec.mjs` (règles pures chargées par data: URL, profils selon RAM simulée, masquage, rapport sans panel, 404 puis succès). `helpers.launchLauncher` accepte `env`, le mock expose `setDiagnosticAccept()`. Les tests doivent rester indépendants de la langue (le système de test est en anglais).
+- À vérifier sur machines réelles : GPU renvoyé par `getGPUInfo('basic')` (Windows/Linux, parfois seulement vendorId/deviceId), ZGC sur Java 17 Windows/Linux, détection du Java téléchargé (`runtime/*/release`), session Wayland/X11, enregistrement .txt (dialogue natif), copie presse-papiers.
+
+## Réglages du joueur conservés à la mise à jour (utils/userdata.js, 2026-10-13)
+
+`verify` (panel) fait SUPPRIMER par la bibliothèque tout fichier du dossier de jeu absent du modpack et de la liste `ignored` (`Minecraft-Bundle.checkFiles`) et re-télécharger tout fichier du modpack dont l'empreinte diffère : à chaque mise à jour de mod, les touches, la langue et l'interface (options.txt, config/…) repartaient à zéro. `getLaunchOptions` ajoute donc `userKeepList(gameDir)` à `ignored` : options*.txt, servers.dat, saves/screenshots/resourcepacks/shaderpacks/logs…, et TOUT fichier déjà présent dans `config/` (jamais remplacé ; un fichier de config absent est toujours téléchargé). La réparation 1 clic ignore ces chemins (`isUserPath`). Pour forcer une config du modpack : supprimer le fichier local.
+
+## Audit sécurité 2026-10-15
+
+- **Fenêtres** : `contextIsolation` reste à `false` (tout le rendu utilise `require`/`ipcRenderer` ; l'activer demanderait un preload et la réécriture du rendu). Défenses en place : `utils/window-guard.js` (processus principal, toutes les `webContents`) : la fenêtre ne navigue que vers les pages `file://` du launcher (`will-navigate`/`will-redirect`, filet `did-navigate`), `setWindowOpenHandler` → `deny`, aucune `<webview>` ; `nodeIntegrationInSubFrames/InWorker: false`, `navigateOnDragDrop: false`. **CSP** dans `launcher.html` et `index.html` : `script-src 'self' 'unsafe-eval'` (eval gardé pour le code obfusqué du build) → JAMAIS de `<script>` en ligne ni de `onerror="…"`/`onclick="…"` (utiliser `addEventListener`). Une nouvelle ressource externe doit passer la CSP (le test `security.spec` vérifie qu'aucune n'est bloquée).
+- **Liens externes** : toujours `openExternal` de `utils/external.js` (http/https seulement), jamais `shell.openExternal` directement.
+- **HTML venu du panel/Azuriom** : texte (`textContent`/`_escapeHtml`) par défaut ; le texte riche (alerte, maintenance, actualités) passe par `utils/sanitize.js` (liste blanche via DOMParser, liens http(s), images https). Pseudo/grade/monnaie/uuid : texte ; pseudo dans une URL : `encodeURIComponent`.
+- **Mods** (`utils/mods.js`) : nom de fichier communauté validé par `safeModFileName` (ni `/`, `\`, `..`, doit finir en `.jar`) ; mods communauté notés dans `launcher_config/community_mods.json` et ajoutés à `ignored` (`communityModPaths`) ; mods optionnels : suffixe `-disable` uniquement, correspondance exacte (`findModFile`).
+- **Patch de la bibliothèque** (en plus du correctif Forge) : `start()` dont le rejet devient un événement `error` ; `/data` contrôlé (statut, JSON, tableau) ; chemins du manifeste confinés au dossier de jeu (`Minecraft-Bundle.checkBundle`) ; `Downloader` : statut HTTP, délai d'inactivité sur tout le corps (`Downloader.IDLE_MS` 60 s), sha1 contrôlé, échecs dans `downloader.failed` → le lancement s'arrête avec UN message.
+- **Launcher** : un seul lancement à la fois (`_launching`), `launch.removeAllListeners()` avant chaque lancement, `screen` transmis ; Azuriom en panne (`AZauth.verify` qui lève) → compte en cache conservé ; e-mail non vérifié → compte retiré sans être réécrit ; adresse d'authentification forcée en https (`secureAuthUrl`, sauf boucle locale) ; verrou d'instance unique AVANT `startup-guard` + `second-instance` → focus.
+- **Tests** : `tests/e2e/security.spec.mjs` ; le faux panel expose `setApiOver`, `setMods`, `setCommunityMods`, `setAuthMode` et sert `/mc/game/version_manifest_v2.json` en 502.
+- **Non fait** : signature des builds (certificat requis) et fuses Electron ; montée d'Electron 37 (hors support) et de la chaîne electron-builder (22 alertes de dev, correctif `npm audit fix --force` uniquement). Les dépendances de production sont à 0 vulnérabilité.
+
+## Fenêtre de chargement de Forge : journal de contrôle (2026-10-21)
+
+`utils/forgeconfig.js applyForgeWindowSettings()` renvoie `{file, ok, value}` après RELECTURE de `config/fml.toml` ; `home.js` écrit dans `launcher.log` la ligne `fml.toml <chemin> : earlyWindowControl=false` (ou « NON appliqué »). Si le joueur voit encore le logo Mojang rouge au lancement : lire cette ligne, puis `logs/latest.log` du jeu (`ImmediateWindowProvider not loading because splash screen is disabled` = appliqué). Cause probable sinon : launcher plus ancien que 1.5.27.
+
+## Sélecteur de canal d'instance Stable / Test lié aux grades Azuriom & branche `test` (2026-10-23)
+
+- **Branche `test` & auto-push** : branche `test` ajoutée aux workflows `.github/workflows/ci.yml` et `.github/workflows/release.yml` (génère une pré-release GitHub `prerelease: true` sous `Peterdu1109 <peter1109@hotmail.fr>`) avec hook `.git/hooks/post-commit` qui push automatiquement sur `origin/main`.
+- **Logique des canaux & permissions par grade Azuriom (`src/assets/js/utils/instance.js`)** :
+  - `getSelectedChannel()` / `setSelectedChannel('stable' | 'test')` stocké dans `localStorage.geoventure_selected_channel`.
+  - `canAccessChannel(channel, userRole, serverCfg)` compare le grade Azuriom du joueur connecté (`account.role` / `userRole`, stocké aussi dans `localStorage.geoventure_user_role` à la connexion et au démarrage dans `login.js` et `launcher.js`) avec `allowed_roles` / `allowedRoles` (canal `stable`, ouvert à tous si vide) et `test_roles` / `testRoles` (canal `test`, restreint aux grades staff/bêta par défaut si non vide ou selon `channel`).
+  - `withInstance(url, slug, channel)` ajoute automatiquement `&channel=test` aux appels `/utils/api`, `/data` et `/utils/servers-status` lorsque le canal `test` est actif.
+- **Isolation des dossiers de jeu & états d'installation** :
+  - `src/assets/js/utils/gamedir.js` (`resolveGameDir`) : le canal `test` utilise un dossier dédié `<baseDir>/instances/<slug>-test` pour ne jamais écraser ou polluer le modpack `stable`.
+  - `src/assets/js/utils/installstate.js` et `src/assets/js/utils/config.js` : état d'installation (`<slug>:test`) et cache de configuration isolés par canal.
+- **Interface utilisateur (`home` & `instances`)** :
+  - `src/panels/home.html`, `src/assets/js/panels/home.js`, `src/assets/css/panels/home.css` : sélecteur `#home-channel-switch` (`Stable` / `🧪 Test`) sous les pastilles de serveur, cadenas `🔒` et infobulle indiquant les grades Azuriom requis si le joueur n'a pas le grade, bascule automatique sur `stable` si non autorisé, et blocage de sécurité dans `_doLaunch()` avant lancement.
+  - `src/panels/instances.html`, `src/assets/js/panels/instances.js`, `src/assets/css/panels/instances.css` : sélecteur de canal par carte d'instance et dans le panneau de détails, badges des grades Azuriom autorisés (`#inst-detail-roles`).
+  - Traductions FR/EN ajoutées dans `src/assets/langs/fr.json` et `src/assets/langs/en.json` (`channel_*`, `instances_channel_*`).
+
+## Règle absolue : Tout en français (Commits, Releases, Pull Requests)
+
+- **Branche unique `main`** : Tout le développement et tous les pushs se font directement sur `main` (plus de branche `test`). Le hook `.git/hooks/post-commit` pousse automatiquement sur `origin/main` avec l'identité `Peterdu1109 <peter1109@hotmail.fr>`.
+- **100 % en français** : Tous les messages de commit Git, titres et descriptions de Pull Requests, notes de version (GitHub Releases) et commentaires doivent être rédigés **exclusivement en français**.
+- **Format des messages de commit** :
+  - Nouveauté (bump `minor`) : `Ajout : description claire en français` (ou `feat: description en français`)
+  - Correction (bump `patch`) : `Correction : description claire en français` (ou `fix: description en français`)
+  - Amélioration (bump `patch`) : `Amélioration : description claire en français` (ou `Optimisation : ...`)
+  - Maintenance / Doc (sans release) : `Maintenance : ...` ou `Documentation : ...`
+  - Ne jamais écrire de message de commit en anglais.
