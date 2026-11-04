@@ -5,7 +5,7 @@ Application de jeu (Electron, JavaScript sans framework). Elle lit sa configurat
 ## Règles
 
 - **100 % en français** (commits, releases, PR) : `Ajout :`, `Correction :`, `Amélioration :`, `Documentation :`, `Maintenance :`.
-- Branche unique `main`, le hook `post-commit` pousse tout seul. Un push déclenche le workflow : version, build, GitHub Release.
+- Branche par défaut du dépôt : `master` (`main` existe aussi et reçoit les mêmes commits). Le hook `post-commit` pousse tout seul. Un push déclenche le workflow : version, build, GitHub Release.
 - Aucun secret dans le dépôt.
 
 ## Contrat avec le panel : à ne pas casser
