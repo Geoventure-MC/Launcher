@@ -7,8 +7,17 @@ import { ROOT } from './helpers.mjs';
 
 // Les modules purs du launcher sont de l'ESM dans un package sans "type": on les charge tels quels via une data: URL.
 const loadEsm = (rel) => import('data:text/javascript;base64,' + fs.readFileSync(path.join(ROOT, rel)).toString('base64'));
-const { buildProfile, recommendProfile, sanitizeJvmArgs, ramCapGb } = await loadEsm('src/assets/js/utils/perf.js');
+const { buildProfile, recommendProfile, sanitizeJvmArgs, ramCapGb, launchRamMaxGb } = await loadEsm('src/assets/js/utils/perf.js');
 const { redact, tailLines } = await loadEsm('src/assets/js/utils/diagnostic.js');
+
+test('launchRamMaxGb : 60 % de la RAM, jamais plus que la machine', () => {
+    expect(launchRamMaxGb(12, 16)).toBe(9);
+    expect(launchRamMaxGb(6, 16)).toBe(6);
+    expect(launchRamMaxGb(Infinity, 8)).toBe(4);
+    expect(launchRamMaxGb('abc', 8)).toBe(4);
+    expect(launchRamMaxGb(8, 4)).toBe(3);
+    expect(launchRamMaxGb(8, 2)).toBe(1);
+});
 
 let mock;
 test.beforeAll(async () => { mock = await startMock(8791); });

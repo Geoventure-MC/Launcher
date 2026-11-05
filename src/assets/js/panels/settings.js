@@ -13,7 +13,7 @@ import * as desktopNotify from '../utils/desktopNotify.js';
 import { getGameDirectory } from '../utils/gamedir.js';
 import { withInstance } from '../utils/instance.js';
 import { getAzAuthUrl } from '../utils/config.js';
-import { toGb, recommendProfile, buildProfile, sanitizeJvmArgs, PROFILE_IDS } from '../utils/perf.js';
+import { toGb, recommendProfile, buildProfile, sanitizeJvmArgs, PROFILE_IDS, launchRamMaxGb } from '../utils/perf.js';
 import { collectDiagnostic } from '../utils/diagnostic.js';
 import { isUserPath } from '../utils/userdata.js';
 import { openExternal } from '../utils/external.js';
@@ -370,10 +370,11 @@ class Settings {
         document.getElementById("free-ram").textContent = `${freeMem} Go RAM disponible`;
 
         const sliderDiv = document.querySelector(".memory-slider");
-        sliderDiv.setAttribute("max", Math.trunc((80 * totalMem) / 100));
+        const ramLimit = launchRamMaxGb(Infinity, totalMem);
+        sliderDiv.setAttribute("max", ramLimit);
 
         const ram = ramDatabase ? ramDatabase : { ramMin: this.config.ram_min, ramMax: this.config.ram_max };
-        const slider = new Slider(".memory-slider", parseFloat(ram.ramMin), parseFloat(ram.ramMax));
+        const slider = new Slider(".memory-slider", Math.min(parseFloat(ram.ramMin), ramLimit), Math.min(parseFloat(ram.ramMax), ramLimit));
         this.ramSlider = slider;
 
         const minSpan = document.querySelector(".slider-touch-left span");
@@ -1197,6 +1198,18 @@ class Settings {
                     console.error(`Failed to delete corrupted file ${filePath}:`, err);
                 }
             }
+        }
+
+        // Jars patchés par Forge : un fichier tronqué ici bloque le patch, et ils ne sont pas dans le manifeste.
+        // Absents, ils sont retéléchargés et repatchés au prochain lancement.
+        const mcLibs = path.join(gameDir, 'libraries', 'net', 'minecraft');
+        try {
+            if (fs.existsSync(mcLibs)) {
+                fs.rmSync(mcLibs, { recursive: true, force: true });
+                deleted++;
+            }
+        } catch (err) {
+            console.error('Failed to purge libraries/net/minecraft:', err);
         }
 
         try {

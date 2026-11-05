@@ -8,7 +8,7 @@
 'use strict';
 
 import { logger, database, changePanel, t } from '../utils.js';
-import { sanitizeJvmArgs } from '../utils/perf.js';
+import { sanitizeJvmArgs, launchRamMaxGb, toGb } from '../utils/perf.js';
 import { sendEvent, isConsented } from '../utils/telemetry.js';
 import { validatePanel } from '../utils/schema-validator.js';
 import { getGameDirectory, getGameDirectoryFor } from '../utils/gamedir.js';
@@ -347,7 +347,9 @@ class Home {
         const urlpkg = this.getBaseUrl();
         const uuid = (await this.database.get('1234', 'accounts-selected')).value;
         const account = (await this.database.get(uuid.selected, 'accounts')).value;
-        const ram = (await this.database.get('1234', 'ram')).value;
+        const savedRam = (await this.database.get('1234', 'ram')).value;
+        const ramMax = launchRamMaxGb(savedRam.ramMax, toGb(require('os').totalmem()));
+        const ram = { ramMin: Math.min(Number(savedRam.ramMin) || 1, ramMax), ramMax };
         const javaPath = (await this.database.get('1234', 'java-path')).value;
         const javaArgs = (await this.database.get('1234', 'java-args'))?.value;
         // Arguments JVM du profil de performance (ou saisis à la main) ; -Xms/-Xmx sont retirés (curseurs RAM).

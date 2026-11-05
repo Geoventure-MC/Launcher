@@ -39,6 +39,17 @@ export function toGb(bytes) { return Math.trunc(bytes / GIB * 10) / 10; }
 /** Plafond de RAM autorisé (Go entiers, 60 % de la RAM totale). */
 export function ramCapGb(totalGb) { return Math.floor(Number(totalGb) * MAX_RAM_SHARE); }
 
+/**
+ * RAM maximale réellement donnée au jeu : 60 % de la RAM totale. Sur une petite machine, 60 % ne fait pas démarrer le
+ * modpack : on laisse alors jusqu'au minimum du modpack, sans jamais dépasser la mémoire physique moins 1 Go.
+ */
+export function launchRamMaxGb(requested, totalGb) {
+    const total = Number(totalGb);
+    const cap = Math.max(ramCapGb(total), Math.min(MODPACK_MIN_GB, Math.floor(total - 1)));
+    const wanted = Number(requested);
+    return Math.max(1, Math.min(Number.isFinite(wanted) && wanted > 0 ? wanted : cap, cap));
+}
+
 /** Profil recommandé selon la machine (RAM totale en Go, nombre de cœurs). */
 export function recommendProfile(totalGb, cores) {
     const c = Number(cores) || 1;

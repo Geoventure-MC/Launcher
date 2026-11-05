@@ -94,10 +94,16 @@ index d536de4..b1e0e9f 100644
          const installer = await forge.downloadInstaller(LoaderData);
          if (installer.error)
 diff --git a/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js b/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js
-index f995eca..7fbb944 100644
+index f995eca..ae01e40 100644
 --- a/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js
 +++ b/node_modules/minecraft-java-core-azbetter/build/Minecraft-Loader/patcher.js
-@@ -42,14 +42,41 @@ class ForgePatcher extends events_1.EventEmitter {
+@@ -38,18 +38,47 @@ class ForgePatcher extends events_1.EventEmitter {
+             }
+             await new Promise((resolve) => {
+                 const spawned = (0, child_process_1.spawn)(`"${path_1.default.resolve(config.java)}"`, [
++                    // Sans -Xmx, la JVM prend 1/4 de la RAM : MERGE_MAPPING peine sur les petites machines.
++                    `-Xmx${Math.min(2048, Math.max(1024, Math.floor(require('os').totalmem() / 2097152)))}M`,
+                     '-classpath',
                      [`"${jarPath}"`, ...classPaths].join(path_1.default.delimiter),
                      mainClass,
                      ...args
